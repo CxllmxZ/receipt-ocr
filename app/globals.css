@@ -23,6 +23,10 @@
 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
+html {
+  font-size: 18px;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
