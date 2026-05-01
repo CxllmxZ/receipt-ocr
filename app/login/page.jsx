@@ -73,6 +73,7 @@ export default function LoginPage() {
                 <stop offset="100%" stopColor="#22c55e" stopOpacity="0"/>
               </linearGradient>
             </defs>
+            <g transform="translate(21, 0)">
             <rect x="0" y="0" width="32" height="42" rx="3" fill="#1a2a1a" stroke="#22c55e" strokeWidth="1.6"/>
             <polyline points="0,42 3,37 6,42 9,37 12,42 15,37 18,42 21,37 24,42 27,37 30,42 32,42" fill="none" stroke="#22c55e" strokeWidth="1.6" strokeLinejoin="round"/>
             <line x1="5" y1="10" x2="27" y2="10" stroke="#22c55e" strokeWidth="1.1" strokeLinecap="round" opacity="0.35"/>
@@ -85,6 +86,7 @@ export default function LoginPage() {
             <text x="48" y="31" fontFamily="-apple-system,BlinkMacSystemFont,sans-serif" fontSize="26" fontWeight="700" letterSpacing="-0.5">
               <tspan fill="#ffffff">Slip</tspan><tspan fill="#22c55e">Scan</tspan>
             </text>
+            </g>
           </svg>
           <p className="text-sm text-gray-500">สแกนใบเสร็จ · จัดการสลิป · ในคลิกเดียว</p>
         </div>
