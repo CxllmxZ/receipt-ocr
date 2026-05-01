@@ -325,7 +325,7 @@ export default function DashboardPage() {
           </svg>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 bg-gray-900 border border-gray-800 rounded-full px-3 py-1.5">
+            <span className="text-xs text-gray-400 bg-gray-900 border border-gray-800 rounded-full px-3 py-1.5 whitespace-nowrap">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5 mb-0.5"></span>
               {credits} credits
             </span>
