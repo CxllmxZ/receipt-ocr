@@ -234,14 +234,14 @@ export default function DashboardPage() {
   function openEdit(r) {
     setEditReceipt(r)
     setEditForm({
-      receiver_name: r.receiver_name ?? '',
-      amount: r.amount ?? '',
-      date: r.date ?? '',
-      time: r.time ?? '',
-      sender_name: r.sender_name ?? '',
-      bank_from: r.bank_from ?? '',
-      bank_to: r.bank_to ?? '',
-      note: r.note ?? '',
+      receiver_name: (r.receiver_name == null || r.receiver_name === 'null') ? '' : r.receiver_name,
+      amount: (r.amount == null || r.amount === 'null') ? '' : r.amount,
+      date: (r.date == null || r.date === 'null') ? '' : r.date,
+      time: (r.time == null || r.time === 'null') ? '' : r.time,
+      sender_name: (r.sender_name == null || r.sender_name === 'null') ? '' : r.sender_name,
+      bank_from: (r.bank_from == null || r.bank_from === 'null') ? '' : r.bank_from,
+      bank_to: (r.bank_to == null || r.bank_to === 'null') ? '' : r.bank_to,
+      note: (r.note == null || r.note === 'null') ? '' : r.note,
     })
   }
 
@@ -264,13 +264,13 @@ export default function DashboardPage() {
     const headers = ['วันที่อัพโหลด', 'ร้าน/ผู้รับ', 'ผู้ส่ง', 'จำนวนเงิน', 'ธนาคารต้นทาง', 'ธนาคารปลายทาง', 'เลขอ้างอิง', 'หมายเหตุ']
     const rows = filtered.map(r => [
       new Date(r.created_at).toLocaleString('th-TH'),
-      r.receiver_name ?? '',
-      r.sender_name ?? '',
-      r.amount ?? '',
-      r.bank_from ?? '',
-      r.bank_to ?? '',
+      (r.receiver_name == null || r.receiver_name === 'null') ? '' : r.receiver_name,
+      (r.sender_name == null || r.sender_name === 'null') ? '' : r.sender_name,
+      (r.amount == null || r.amount === 'null') ? '' : r.amount,
+      (r.bank_from == null || r.bank_from === 'null') ? '' : r.bank_from,
+      (r.bank_to == null || r.bank_to === 'null') ? '' : r.bank_to,
       r.ref_number ?? '',
-      r.note ?? '',
+      r.note == null || r.note === 'null' ? '' : r.note,
     ])
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
@@ -491,7 +491,7 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5 truncate">
-                    {r.bank_from ?? ''}{r.bank_from && r.bank_to ? ' → ' : ''}{r.bank_to ?? ''}
+                    {(r.bank_from == null || r.bank_from === 'null') ? '' : r.bank_from}{r.bank_from && r.bank_to ? ' → ' : ''}{(r.bank_to == null || r.bank_to === 'null') ? '' : r.bank_to}
                     {r.ref_number ? ` · ref: ${r.ref_number}` : ''}
                   </p>
                   {r.suspicious_signs?.length > 0 && (
