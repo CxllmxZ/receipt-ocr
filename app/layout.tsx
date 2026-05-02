@@ -26,7 +26,7 @@ export const viewport = {
   initialScale: 1,
   themeColor: '#0a0a0a',  
   verification: {
-    google: 'google-site-verification=UZonHOIsK562pNvOrRxdRPpoxAwCRXn55akgX4JodGk'
+    google: 'L2brEu95izMgMLzLWLyf8T24s6QnvNkjKxzekUzH-Yo'
   },
 }
 
