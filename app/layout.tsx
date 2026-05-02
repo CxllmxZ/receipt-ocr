@@ -25,6 +25,9 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: '#0a0a0a',  
+  verification: {
+    google: 'google-site-verification=UZonHOIsK562pNvOrRxdRPpoxAwCRXn55akgX4JodGk'
+  },
 }
 
 export default function RootLayout({
