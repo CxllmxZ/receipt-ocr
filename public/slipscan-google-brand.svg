@@ -1,0 +1,24 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- white bg -->
+  <rect width="120" height="120" fill="#ffffff"/>
+  <!-- receipt icon centered -->
+  <g transform="translate(35, 15)">
+    <rect x="0" y="0" width="50" height="64" rx="6" fill="#e8f5e8" stroke="#16a34a" stroke-width="2"/>
+    <!-- zigzag -->
+    <polyline points="0,64 5,56 10,64 15,56 20,64 25,56 30,64 35,56 40,64 45,56 50,64"
+              fill="none" stroke="#16a34a" stroke-width="2" stroke-linejoin="round"/>
+    <!-- content lines -->
+    <line x1="8" y1="18" x2="42" y2="18" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/>
+    <line x1="8" y1="26" x2="34" y2="26" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" opacity="0.25"/>
+    <!-- scan zone -->
+    <rect x="0" y="34" width="50" height="12" fill="#16a34a" opacity="0.08"/>
+    <!-- scan line -->
+    <line x1="-6" y1="40" x2="56" y2="40" stroke="#16a34a" stroke-width="2.5"/>
+    <line x1="-6" y1="33" x2="-6" y2="47" stroke="#16a34a" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+    <line x1="56" y1="33" x2="56" y2="47" stroke="#16a34a" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+    <!-- bottom line -->
+    <line x1="8" y1="54" x2="42" y2="54" stroke="#16a34a" stroke-width="1.8" stroke-linecap="round" opacity="0.45"/>
+  </g>
+  <!-- wordmark -->
+  <text x="60" y="104" font-family="-apple-system,BlinkMacSystemFont,Arial,sans-serif" font-size="16" font-weight="700" fill="#111111" text-anchor="middle" letter-spacing="-0.3">Slip<tspan fill="#16a34a">Scan</tspan></text>
+</svg>
