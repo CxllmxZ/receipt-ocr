@@ -535,6 +535,46 @@ export default function DashboardPage() {
 
                 {[
                   { key: 'receiver_name', label: 'ผู้รับ' },
+                ].map(({ key, label }) => (
+                  <div key={key}>
+                    <label className="text-xs text-gray-500 mb-1 block">{label}</label>
+                    <input
+                      type="text"
+                      value={editForm[key]}
+                      onChange={e => setEditForm(prev => ({ ...prev, [key]: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm"
+                    />
+                  </div>
+                ))}
+
+                {/* amount field - second position */}
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">จำนวนเงิน</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">฿</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={editForm['amount']}
+                      onChange={e => setEditForm(prev => ({ ...prev, amount: e.target.value }))}
+                      onBlur={e => {
+                        const val = parseFloat(e.target.value)
+                        if (!isNaN(val)) setEditForm(prev => ({ ...prev, amount: val.toFixed(2) }))
+                      }}
+                      className="w-full pl-7 pr-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm text-right"
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  {editForm['amount'] && !isNaN(parseFloat(editForm['amount'])) && (
+                    <p className="text-xs text-gray-600 text-right mt-1">
+                      = ฿{parseFloat(editForm['amount']).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                    </p>
+                  )}
+                </div>
+
+                {[
                   { key: 'date', label: 'วันที่' },
                   { key: 'time', label: 'เวลา' },
                   { key: 'sender_name', label: 'ผู้ส่ง' },
@@ -552,24 +592,6 @@ export default function DashboardPage() {
                     />
                   </div>
                 ))}
-
-                {/* amount field - special */}
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">จำนวนเงิน</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">฿</span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      value={editForm['amount']}
-                      onChange={e => setEditForm(prev => ({ ...prev, amount: e.target.value }))}
-                      className="w-full pl-7 pr-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm text-right"
-                      placeholder="0.00"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
 
                 <div className="flex gap-2 pt-2">
                   <button
