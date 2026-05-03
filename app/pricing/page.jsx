@@ -87,7 +87,8 @@ export default function PricingPage() {
       const data = await res.json()
 
       // n8n อาจส่งกลับมาเป็น array หรือ object
-      const checkoutUrl = Array.isArray(data) ? data[0].url : data.checkout_url
+      //const checkoutUrl = Array.isArray(data) ? data[0].url : data.checkout_url
+      const checkoutUrl = Array.isArray(data) ? data[0].url : data.url
 
       if (!checkoutUrl) throw new Error('no checkout url')
 
