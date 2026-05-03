@@ -73,7 +73,7 @@ export default function PricingPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
 
-      const res = await fetch('https://n8n-production-8d4e.up.railway.app/webhook/webhook/create-checkout', {
+      const res = await fetch('https://n8n-production-8d4e.up.railway.app/webhook/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
