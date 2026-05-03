@@ -12,6 +12,8 @@ const PLANS = [
     bonus: 0,
     desc: 'เหมาะสำหรับทดลองใช้',
     highlight: false,
+    //stripeUrl: 'https://buy.stripe.com/00w5kF9eY3ek7j4bBM0Ny02',
+    stripeUrl: 'https://buy.stripe.com/test_00waEX4h6go98Vd5YgaEE00',
   },
   {
     id: 'pro',
@@ -21,6 +23,8 @@ const PLANS = [
     bonus: 50,
     desc: 'ยอดนิยม คุ้มที่สุด',
     highlight: true,
+    //stripeUrl: 'https://buy.stripe.com/28E4gBfDm9CI9rceNY0Ny01',
+    stripeUrl: 'https://buy.stripe.com/test_6oUbJ14h6dbXgnFeuMaEE01',
   },
   {
     id: 'whale',
@@ -30,6 +34,8 @@ const PLANS = [
     bonus: 200,
     desc: 'สำหรับคนใช้เยอะ',
     highlight: false,
+    //stripeUrl: 'https://buy.stripe.com/3cIfZj0Is5msfPAeNY0Ny00',
+    stripeUrl: 'https://buy.stripe.com/test_5kQbJ100Q5Jv7R92M4aEE02',
   },
 ]
 
@@ -38,7 +44,6 @@ export default function PricingPage() {
   const [user, setUser] = useState(null)
   const [credits, setCredits] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [buyingPlan, setBuyingPlan] = useState(null) // track loading state per plan
 
   useEffect(() => {
     checkSession()
@@ -66,34 +71,9 @@ export default function PricingPage() {
     setLoading(false)
   }
 
-  async function handleBuy(plan) {
-    try {
-      setBuyingPlan(plan.id)
-
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { router.push('/login'); return }
-
-      const res = await fetch('https://n8n-production-8d4e.up.railway.app/webhook/create-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: session.user.id,
-          plan: plan.id,
-        }),
-      })
-
-      if (!res.ok) throw new Error('create checkout failed')
-
-      const { checkout_url } = await res.json()
-      const newWindow = window.open(checkout_url, '_blank', 'noopener,noreferrer')
-      if (newWindow) newWindow.opener = null
-
-    } catch (err) {
-      console.error(err)
-      alert('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง')
-    } finally {
-      setBuyingPlan(null)
-    }
+  function handleBuy(plan) {
+    const newWindow = window.open(plan.stripeUrl, '_blank', 'noopener,noreferrer')
+    if (newWindow) newWindow.opener = null
   }
 
   if (loading) return (
@@ -126,7 +106,7 @@ export default function PricingPage() {
           <p className="text-sm text-gray-500">ซื้อครั้งเดียว ไม่มีรายเดือน ใช้ได้ไม่มีหมดอายุ</p>
         </div>
 
-        {/* plans */}
+        {/* plans — stack on mobile, 3 cols on desktop */}
         <div className="flex flex-col sm:grid sm:grid-cols-3 gap-3 sm:gap-4 mb-8 sm:mb-12">
           {PLANS.map(plan => (
             <div
@@ -143,6 +123,7 @@ export default function PricingPage() {
                 </div>
               )}
 
+              {/* mobile: left col info, right col button */}
               <div className="flex-1 flex sm:flex-col gap-3 sm:gap-4">
                 <div className="flex-1">
                   <p className="text-xs font-medium mb-1 text-gray-500">{plan.name}</p>
@@ -164,14 +145,13 @@ export default function PricingPage() {
 
               <button
                 onClick={() => handleBuy(plan)}
-                disabled={buyingPlan === plan.id}
-                className={`sm:w-full py-3 px-5 sm:px-0 rounded-xl text-sm font-medium transition flex-shrink-0 self-center sm:self-auto disabled:opacity-50 ${
+                className={`sm:w-full py-3 px-5 sm:px-0 rounded-xl text-sm font-medium transition flex-shrink-0 self-center sm:self-auto ${
                   plan.highlight
                     ? 'bg-gray-950 text-white hover:bg-gray-800'
                     : 'bg-gray-800 text-white hover:bg-gray-700'
                 }`}
               >
-                {buyingPlan === plan.id ? 'กำลังโหลด...' : 'ซื้อเลย'}
+                ซื้อเลย
               </button>
             </div>
           ))}
