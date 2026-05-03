@@ -84,8 +84,14 @@ export default function PricingPage() {
 
       if (!res.ok) throw new Error('create checkout failed')
 
-      const { checkout_url } = await res.json()
-      const newWindow = window.open(checkout_url, '_blank', 'noopener,noreferrer')
+      const data = await res.json()
+
+      // n8n อาจส่งกลับมาเป็น array หรือ object
+      const checkoutUrl = Array.isArray(data) ? data[0].url : data.checkout_url
+
+      if (!checkoutUrl) throw new Error('no checkout url')
+
+      const newWindow = window.open(checkoutUrl, '_blank', 'noopener,noreferrer')
       if (newWindow) newWindow.opener = null
 
     } catch (err) {
