@@ -12,7 +12,8 @@ const PLANS = [
     bonus: 0,
     desc: 'เหมาะสำหรับทดลองใช้',
     highlight: false,
-    stripeUrl: 'https://buy.stripe.com/00w5kF9eY3ek7j4bBM0Ny02',
+    //stripeUrl: 'https://buy.stripe.com/00w5kF9eY3ek7j4bBM0Ny02',
+    stripeUrl: 'https://buy.stripe.com/test_00waEX4h6go98Vd5YgaEE00',
   },
   {
     id: 'pro',
@@ -22,7 +23,8 @@ const PLANS = [
     bonus: 50,
     desc: 'ยอดนิยม คุ้มที่สุด',
     highlight: true,
-    stripeUrl: 'https://buy.stripe.com/28E4gBfDm9CI9rceNY0Ny01',
+    //stripeUrl: 'https://buy.stripe.com/28E4gBfDm9CI9rceNY0Ny01',
+    stripeUrl: 'https://buy.stripe.com/test_6oUbJ14h6dbXgnFeuMaEE01',
   },
   {
     id: 'whale',
@@ -32,7 +34,8 @@ const PLANS = [
     bonus: 200,
     desc: 'สำหรับคนใช้เยอะ',
     highlight: false,
-    stripeUrl: 'https://buy.stripe.com/3cIfZj0Is5msfPAeNY0Ny00',
+    //stripeUrl: 'https://buy.stripe.com/3cIfZj0Is5msfPAeNY0Ny00',
+    stripeUrl: 'https://buy.stripe.com/test_5kQbJ100Q5Jv7R92M4aEE02',
   },
 ]
 
