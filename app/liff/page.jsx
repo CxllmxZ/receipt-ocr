@@ -12,6 +12,7 @@ export default function LiffPage() {
   const [receipts, setReceipts] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [openingWeb, setOpeningWeb] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
 
@@ -99,6 +100,40 @@ export default function LiffPage() {
     }
   }
 
+  const handleOpenWeb = async () => {
+    if (!accessToken || openingWeb) return
+
+    setOpeningWeb(true)
+    setError(null)
+
+    try {
+      const res = await fetch(`${N8N_BASE}/web-login`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      const data = await res.json()
+
+      if (data.success && data.redirect_url) {
+        // ถ้าอยู่ใน LIFF จริง ใช้ liff.openWindow (external browser)
+        // ถ้าเปิดจาก browser ปกติใช้ window.open
+        if (typeof window !== 'undefined' && window.liff?.openWindow) {
+          window.liff.openWindow({
+            url: data.redirect_url,
+            external: true
+          })
+        } else {
+          window.open(data.redirect_url, '_blank', 'noopener,noreferrer')
+        }
+      } else {
+        setError('เปิด web ไม่สำเร็จ')
+      }
+    } catch (err) {
+      setError('เกิดข้อผิดพลาด ลองใหม่อีกครั้ง')
+    } finally {
+      setOpeningWeb(false)
+    }
+  }
+
   // ---- Loading ----
   if (!liffReady || loading) {
     return (
@@ -128,17 +163,24 @@ export default function LiffPage() {
             ซื้อ credits เพิ่มเพื่อสแกนสลิปต่อ<br />
             กลับไปที่ web เพื่อจัดการ
           </p>
-          <a
-            href={WEB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-xl text-sm font-medium transition"
+          <button
+            onClick={handleOpenWeb}
+            disabled={openingWeb}
+            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl text-sm font-medium transition"
           >
-            เปิด web
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-            </svg>
-          </a>
+            {openingWeb ? 'กำลังเปิด...' : 'เปิด web'}
+            {!openingWeb && (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+              </svg>
+            )}
+          </button>
+
+          {error && (
+            <p className="mt-3 text-xs text-red-500 dark:text-red-400">
+              {error}
+            </p>
+          )}
         </div>
       </div>
     )
@@ -266,17 +308,18 @@ export default function LiffPage() {
         )}
 
         <div className="mt-6 text-center">
-          <a
-            href={`${WEB_URL}/dashboard`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition"
+          <button
+            onClick={handleOpenWeb}
+            disabled={openingWeb}
+            className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
-            ดูทั้งหมดใน web
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-            </svg>
-          </a>
+            {openingWeb ? 'กำลังเปิด...' : 'ดูทั้งหมดใน web'}
+            {!openingWeb && (
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+              </svg>
+            )}
+          </button>
         </div>
       </section>
 
