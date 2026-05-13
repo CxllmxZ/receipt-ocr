@@ -336,6 +336,10 @@ export default function DashboardPage() {
             <button onClick={() => router.push('/support')} className="hidden sm:block text-xs text-gray-500 hover:text-gray-300 px-2">
               ติดต่อเรา
             </button>
+            {/* settings */}
+            <button onClick={() => router.push('/settings')} className="hidden sm:block text-xs text-gray-500 hover:text-gray-300 px-2">
+              ตั้งค่า
+            </button>
             <button onClick={handleLogout} className="hidden sm:block text-xs text-gray-500 hover:text-gray-300 px-2">
               ออกจากระบบ
             </button>
@@ -350,6 +354,9 @@ export default function DashboardPage() {
                 <div className="absolute right-0 top-11 bg-gray-900 border border-gray-800 rounded-xl py-1 w-36 z-50 shadow-xl">
                   <button onClick={() => { router.push('/support'); setMenuOpen(false) }} className="w-full text-left text-sm text-gray-400 px-4 py-3 hover:bg-gray-800">
                     ติดต่อเรา
+                  </button>
+                  <button onClick={() => { router.push('/settings'); setMenuOpen(false) }} className="w-full text-left text-sm text-gray-400 px-4 py-3 hover:bg-gray-800">
+                    ตั้งค่า
                   </button>
                   <button onClick={() => { handleLogout(); setMenuOpen(false) }} className="w-full text-left text-sm text-gray-400 px-4 py-3 hover:bg-gray-800">
                     ออกจากระบบ
