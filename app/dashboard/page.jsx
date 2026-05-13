@@ -56,6 +56,10 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
+    // Clear token จาก URL หลัง Supabase process แล้ว
+    if (window.location.hash.includes('access_token')) {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
     checkSession()
   }, [])
 
@@ -63,14 +67,6 @@ export default function DashboardPage() {
     setCurrentPage(1)
     applyFilter()
   }, [receipts, dateFrom, dateTo])
-
-  useEffect(() => {
-    // Clear token จาก URL หลัง Supabase process แล้ว
-    if (window.location.hash.includes('access_token')) {
-      window.history.replaceState(null, '', window.location.pathname)
-    }
-    checkSession()
-  }, [])
 
   async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession()
