@@ -1,13 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from "../../lib/supabase"
 import { useRouter } from 'next/navigation'
 
 const N8N_BASE = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL?.replace(/\/upload$/, '') || 'https://n8n-production-8d4e.up.railway.app/webhook'
 const REDIRECT_URI = `${process.env.NEXT_PUBLIC_WEB_URL || 'https://receipt-ocr-rouge.vercel.app'}/auth/line/callback`
 
 export default function LineCallbackPage() {
-  const supabase = createClientComponentClient()
   const router = useRouter()
   const [status, setStatus] = useState('กำลังเชื่อมต่อ LINE...')
 
