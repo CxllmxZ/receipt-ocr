@@ -33,6 +33,13 @@ export default function SettingsPage() {
   }, [])
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('linked') === 'true' || params.get('error')) {
+        router.replace('/settings', { scroll: false })
+    }
+  }, [router])
+
+  useEffect(() => {
     const loadData = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
