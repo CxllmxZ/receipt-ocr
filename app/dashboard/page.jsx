@@ -56,11 +56,14 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    // Clear token จาก URL หลัง Supabase process แล้ว
-    if (window.location.hash.includes('access_token')) {
-      window.history.replaceState(null, '', window.location.pathname)
+    const init = async () => {
+      await checkSession()
+      // clear หลัง Supabase process token เสร็จแล้ว
+      if (window.location.hash.includes('access_token')) {
+        window.history.replaceState(null, '', window.location.pathname)
+      }
     }
-    checkSession()
+    init()
   }, [])
 
   useEffect(() => {
