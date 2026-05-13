@@ -84,8 +84,8 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950">
-        <div className="w-8 h-8 border-2 border-gray-300 dark:border-gray-700 border-t-green-600 rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <div className="w-8 h-8 border-2 border-gray-700 border-t-green-600 rounded-full animate-spin" />
       </div>
     )
   }
@@ -93,7 +93,7 @@ export default function SettingsPage() {
   const isLineConnected = !!profile?.line_user_id
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white">
+    <div className="min-h-screen bg-gray-950 text-white">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg transition-all
@@ -106,11 +106,11 @@ export default function SettingsPage() {
       )}
 
       {/* Header */}
-      <header className="border-b border-gray-100 dark:border-gray-900">
+      <header className="border-b border-gray-900">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-900 transition"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -123,10 +123,10 @@ export default function SettingsPage() {
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
         {/* Account section */}
         <section>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500 mb-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
             บัญชี
           </p>
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+          <div className="bg-gray-900 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
                 {(user?.email || 'U')[0].toUpperCase()}
@@ -135,7 +135,7 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium truncate">
                   {user?.email || '—'}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500">
+                <p className="text-xs text-gray-500">
                   {user?.app_metadata?.provider === 'google' ? 'Google account' : 'Email account'}
                 </p>
               </div>
@@ -145,10 +145,10 @@ export default function SettingsPage() {
 
         {/* Connected accounts section */}
         <section>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500 mb-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
             บัญชีที่เชื่อมต่อ
           </p>
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
+          <div className="bg-gray-900 rounded-xl overflow-hidden divide-y divide-gray-800">
             {/* LINE row */}
             <div className="p-4 flex items-center gap-3">
               {/* LINE logo */}
@@ -160,17 +160,17 @@ export default function SettingsPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">LINE</p>
                 {isLineConnected ? (
-                  <p className="text-xs text-green-600 dark:text-green-400 truncate">
+                  <p className="text-xs text-green-400 truncate">
                     {profile?.display_name || 'เชื่อมต่อแล้ว'}
                   </p>
                 ) : (
-                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                  <p className="text-xs text-gray-500">
                     ยังไม่ได้เชื่อมต่อ
                   </p>
                 )}
               </div>
               {isLineConnected ? (
-                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                <div className="flex items-center gap-1.5 text-green-400">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
@@ -188,7 +188,7 @@ export default function SettingsPage() {
 
             {/* Google row */}
             <div className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -198,19 +198,19 @@ export default function SettingsPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">Google</p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 truncate">
+                <p className="text-xs text-gray-500 truncate">
                   {user?.app_metadata?.provider === 'google' ? user?.email : 'ยังไม่ได้เชื่อมต่อ'}
                 </p>
               </div>
               {user?.app_metadata?.provider === 'google' ? (
-                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                <div className="flex items-center gap-1.5 text-green-400">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                   <span className="text-xs font-medium">เชื่อมต่อแล้ว</span>
                 </div>
               ) : (
-                <span className="text-xs text-gray-400 dark:text-gray-600">—</span>
+                <span className="text-xs text-gray-600">—</span>
               )}
             </div>
           </div>
@@ -218,24 +218,24 @@ export default function SettingsPage() {
 
         {/* Credits section */}
         <section>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500 mb-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
             Credits
           </p>
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 flex items-center justify-between">
+          <div className="bg-gray-900 rounded-xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-500/10 flex items-center justify-center">
-                <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M5.5 4l-3 7L12 22l9.5-11-3-7h-13zm.5 1h12l2.4 5.6L12 19.5 3.6 10.6 6 5z" />
                 </svg>
               </div>
               <div>
                 <p className="text-sm font-medium">Credits คงเหลือ</p>
-                <p className="text-xs text-gray-500 dark:text-gray-500">
+                <p className="text-xs text-gray-500">
                   ใช้สแกนสลิปได้ {profile?.credits ?? '—'} ครั้ง
                 </p>
               </div>
             </div>
-            <span className="text-2xl font-semibold text-green-600 dark:text-green-400 tabular-nums">
+            <span className="text-2xl font-semibold text-green-400 tabular-nums">
               {profile?.credits ?? '—'}
             </span>
           </div>
@@ -245,7 +245,7 @@ export default function SettingsPage() {
         <section>
           <button
             onClick={handleSignOut}
-            className="w-full py-3 rounded-xl border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition"
+            className="w-full py-3 rounded-xl border border-red-900 text-red-400 text-sm font-medium hover:bg-red-500/10 transition"
           >
             ออกจากระบบ
           </button>
