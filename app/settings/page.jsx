@@ -47,6 +47,10 @@ export default function SettingsPage() {
         return
       }
 
+      console.log('[callback] hash:', hashStr)
+      console.log('[callback] hashError:', hashError)
+      console.log('[callback] hashErrorDesc:', hashErrorDesc)
+
       // LINE error (query string จาก /auth/line/callback)
       if (queryError) {
         const errMap = {
