@@ -17,38 +17,88 @@ export default function SettingsPage() {
   const [toast, setToast] = useState(null)
   const [connectingGoogle, setConnectingGoogle] = useState(false)
 
-  useEffect(() => {
-    // ตรวจ query param หลัง callback
-    const params = new URLSearchParams(window.location.search)
-    const linked = params.get('linked')
-    const error = params.get('error')
+  const showToast = (type, message) => {
+    setToast({ type, message })
+    setTimeout(() => setToast(null), 4000)
+  }
 
-    if (linked === 'true' || linked === 'line') {
-      showToast('success', 'เชื่อมต่อ LINE สำเร็จ 🎉')
-      window.history.replaceState({}, '', '/settings')
-    } else if (linked === 'google') {
-      showToast('success', 'เชื่อมต่อ Google สำเร็จ 🎉')
-      window.history.replaceState({}, '', '/settings')
-    } else if (error) {
-      const errMap = {
-        line_already_linked: 'LINE account นี้ถูกใช้งานโดย user อื่นแล้ว',
-        google_already_linked: 'Google account นี้ถูกใช้งานโดย user อื่นแล้ว',
-        identity_already_exists: 'บัญชีนี้ถูกใช้งานโดย user อื่นแล้ว',
-        failed: 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง',
-        state_mismatch: 'พบปัญหาด้านความปลอดภัย ลองใหม่อีกครั้ง'
+  // Callback handler — รวม query + hash + verify identities จริง
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const hashStr = window.location.hash.startsWith('#')
+      ? window.location.hash.substring(1)
+      : window.location.hash
+    const hashParams = new URLSearchParams(hashStr)
+
+    const linked = params.get('linked')
+    const queryError = params.get('error')
+    const hashError = hashParams.get('error') || hashParams.get('error_code')
+    const hashErrorDesc = hashParams.get('error_description')
+
+    const hasAnyCallback = linked || queryError || hashError
+
+    if (!hasAnyCallback) return
+
+    const handleCallback = async () => {
+      // LINE success (n8n flow ที่ verify ผ่าน DB ของเราเอง)
+      if (linked === 'true' || linked === 'line') {
+        showToast('success', 'เชื่อมต่อ LINE สำเร็จ 🎉')
+        window.history.replaceState({}, '', '/settings')
+        return
       }
-      showToast('error', errMap[error] || `เกิดข้อผิดพลาด: ${error}`)
-      window.history.replaceState({}, '', '/settings')
+
+      // LINE error (query string จาก /auth/line/callback)
+      if (queryError) {
+        const errMap = {
+          line_already_linked: 'LINE account นี้ถูกใช้งานโดย user อื่นแล้ว',
+          failed: 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง',
+          state_mismatch: 'พบปัญหาด้านความปลอดภัย ลองใหม่อีกครั้ง'
+        }
+        showToast('error', errMap[queryError] || `เกิดข้อผิดพลาด: ${queryError}`)
+        window.history.replaceState({}, '', '/settings')
+        return
+      }
+
+      // Google flow — มี hash error หรือ linked=google
+      if (linked === 'google' || hashError) {
+        if (hashError) {
+          const desc = hashErrorDesc
+            ? decodeURIComponent(hashErrorDesc.replace(/\+/g, ' '))
+            : ''
+          const combined = `${hashError} ${desc}`.toLowerCase()
+
+          if (combined.includes('already') || combined.includes('identity_already')) {
+            showToast('error', 'Google account นี้ถูกใช้งานโดย user อื่นแล้ว')
+          } else {
+            showToast('error', `เชื่อมต่อ Google ไม่สำเร็จ${desc ? ': ' + desc : ''}`)
+          }
+          window.history.replaceState({}, '', '/settings')
+          return
+        }
+
+        // ไม่มี hash error แต่มี linked=google → verify จริงผ่าน server
+        try {
+          const { data: { user: freshUser } } = await supabase.auth.getUser()
+          const hasGoogle = freshUser?.identities?.some(i => i.provider === 'google')
+
+          if (hasGoogle) {
+            showToast('success', 'เชื่อมต่อ Google สำเร็จ 🎉')
+            setUser(freshUser)
+          } else {
+            showToast('error', 'Google account นี้อาจถูกใช้งานโดย user อื่นแล้ว')
+          }
+        } catch (e) {
+          showToast('error', 'ไม่สามารถยืนยันการเชื่อมต่อได้')
+        }
+
+        window.history.replaceState({}, '', '/settings')
+      }
     }
+
+    handleCallback()
   }, [])
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('linked') || params.get('error')) {
-      router.replace('/settings', { scroll: false })
-    }
-  }, [router])
-
+  // Load user + profile
   useEffect(() => {
     const loadData = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -99,7 +149,6 @@ export default function SettingsPage() {
         }
       })
       if (error) {
-        // ถ้าเป็น identity_already_exists → Supabase อาจ throw ตรงนี้เลย
         const code = error.code || error.message || ''
         if (code.includes('identity_already_exists') || code.includes('already')) {
           showToast('error', 'Google account นี้ถูกใช้งานโดย user อื่นแล้ว')
@@ -110,16 +159,10 @@ export default function SettingsPage() {
         }
         setConnectingGoogle(false)
       }
-      // ถ้า success → จะ redirect ไป Google ทันที, ไม่ต้องทำอะไรต่อ
     } catch (e) {
       showToast('error', 'เชื่อมต่อ Google ไม่สำเร็จ')
       setConnectingGoogle(false)
     }
-  }
-
-  const showToast = (type, message) => {
-    setToast({ type, message })
-    setTimeout(() => setToast(null), 4000)
   }
 
   const handleSignOut = async () => {
@@ -137,14 +180,12 @@ export default function SettingsPage() {
 
   const isLineConnected = !!profile?.line_user_id
 
-  // ใช้ identities array แทน app_metadata.provider เพราะ provider แสดงแค่ login รอบล่าสุด
   const googleIdentity = user?.identities?.find(i => i.provider === 'google')
   const isGoogleConnected = !!googleIdentity
   const googleEmail = googleIdentity?.identity_data?.email
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Toast */}
       {toast && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg transition-all
           ${toast.type === 'success'
@@ -155,7 +196,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Header */}
       <header className="border-b border-gray-900">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <button
@@ -171,7 +211,6 @@ export default function SettingsPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Account section */}
         <section>
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
             บัญชี
@@ -193,13 +232,11 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Connected accounts section */}
         <section>
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
             บัญชีที่เชื่อมต่อ
           </p>
           <div className="bg-gray-900 rounded-xl overflow-hidden divide-y divide-gray-800">
-            {/* LINE row */}
             <div className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-[#06C755] flex items-center justify-center flex-shrink-0">
                 <svg className="w-6 h-6" viewBox="0 0 24 24" fill="white">
@@ -235,7 +272,6 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Google row */}
             <div className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -276,7 +312,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Inline hint สำหรับ user ที่ไม่ได้ link ทั้ง 2 */}
           {(!isLineConnected || !isGoogleConnected) && (
             <p className="mt-2 text-xs text-gray-600 leading-relaxed px-1">
               หมายเหตุ: หากบัญชี LINE หรือ Google ที่คุณจะเชื่อม
@@ -286,7 +321,6 @@ export default function SettingsPage() {
           )}
         </section>
 
-        {/* Credits section */}
         <section>
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
             Credits
@@ -311,7 +345,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Sign out */}
         <section>
           <button
             onClick={handleSignOut}
