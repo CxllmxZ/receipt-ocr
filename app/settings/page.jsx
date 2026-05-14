@@ -32,7 +32,8 @@ export default function SettingsPage() {
 
     const linked = params.get('linked')
     const queryError = params.get('error')
-    const hashError = hashParams.get('error') || hashParams.get('error_code')
+    const hashError = hashParams.get('error') /*|| hashParams.get('error_code')*/
+    const hashErrorCode = hashParams.get('error_code')
     const hashErrorDesc = hashParams.get('error_description')
 
     const hasAnyCallback = linked || queryError || hashError
@@ -46,10 +47,6 @@ export default function SettingsPage() {
         window.history.replaceState({}, '', '/settings')
         return
       }
-
-      console.log('[callback] hash:', hashStr)
-      console.log('[callback] hashError:', hashError)
-      console.log('[callback] hashErrorDesc:', hashErrorDesc)
 
       // LINE error (query string จาก /auth/line/callback)
       if (queryError) {
@@ -69,9 +66,9 @@ export default function SettingsPage() {
           const desc = hashErrorDesc
             ? decodeURIComponent(hashErrorDesc.replace(/\+/g, ' '))
             : ''
-          const combined = `${hashError} ${desc}`.toLowerCase()
+          const combined = `${hashError} ${hashErrorCode || ''} ${desc}`.toLowerCase()
 
-          if (combined.includes('already') || combined.includes('identity_already')) {
+          if (combined.includes('identity_already') || combined.includes('already linked')) {
             showToast('error', 'Google account นี้ถูกใช้งานโดย user อื่นแล้ว')
           } else {
             showToast('error', `เชื่อมต่อ Google ไม่สำเร็จ${desc ? ': ' + desc : ''}`)
