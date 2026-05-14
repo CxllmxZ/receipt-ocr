@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 
 const N8N_BASE = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL?.replace(/\/upload$/, '') || 'https://n8n-production-8d4e.up.railway.app/webhook'
 const LINE_LOGIN_CHANNEL_ID = process.env.NEXT_PUBLIC_LINE_LOGIN_CHANNEL_ID || '2010067305'
-const REDIRECT_URI = `${process.env.NEXT_PUBLIC_WEB_URL || 'https://receipt-ocr-rouge.vercel.app'}/auth/line/callback`
+const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://receipt-ocr-rouge.vercel.app'
+const REDIRECT_URI = `${WEB_URL}/auth/line/callback`
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -14,28 +15,37 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState(null)
+  const [connectingGoogle, setConnectingGoogle] = useState(false)
 
   useEffect(() => {
     // ตรวจ query param หลัง callback
     const params = new URLSearchParams(window.location.search)
-    if (params.get('linked') === 'true') {
+    const linked = params.get('linked')
+    const error = params.get('error')
+
+    if (linked === 'true' || linked === 'line') {
       showToast('success', 'เชื่อมต่อ LINE สำเร็จ 🎉')
       window.history.replaceState({}, '', '/settings')
-    } else if (params.get('error')) {
+    } else if (linked === 'google') {
+      showToast('success', 'เชื่อมต่อ Google สำเร็จ 🎉')
+      window.history.replaceState({}, '', '/settings')
+    } else if (error) {
       const errMap = {
         line_already_linked: 'LINE account นี้ถูกใช้งานโดย user อื่นแล้ว',
-        failed: 'เชื่อมต่อ LINE ไม่สำเร็จ ลองใหม่อีกครั้ง',
+        google_already_linked: 'Google account นี้ถูกใช้งานโดย user อื่นแล้ว',
+        identity_already_exists: 'บัญชีนี้ถูกใช้งานโดย user อื่นแล้ว',
+        failed: 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง',
         state_mismatch: 'พบปัญหาด้านความปลอดภัย ลองใหม่อีกครั้ง'
       }
-      showToast('error', errMap[params.get('error')] || 'เกิดข้อผิดพลาด')
+      showToast('error', errMap[error] || `เกิดข้อผิดพลาด: ${error}`)
       window.history.replaceState({}, '', '/settings')
     }
   }, [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('linked') === 'true' || params.get('error')) {
-        router.replace('/settings', { scroll: false })
+    if (params.get('linked') || params.get('error')) {
+      router.replace('/settings', { scroll: false })
     }
   }, [router])
 
@@ -79,6 +89,34 @@ export default function SettingsPage() {
     window.location.href = `https://access.line.me/oauth2/v2.1/authorize?${params}`
   }
 
+  const handleConnectGoogle = async () => {
+    setConnectingGoogle(true)
+    try {
+      const { error } = await supabase.auth.linkIdentity({
+        provider: 'google',
+        options: {
+          redirectTo: `${WEB_URL}/settings?linked=google`
+        }
+      })
+      if (error) {
+        // ถ้าเป็น identity_already_exists → Supabase อาจ throw ตรงนี้เลย
+        const code = error.code || error.message || ''
+        if (code.includes('identity_already_exists') || code.includes('already')) {
+          showToast('error', 'Google account นี้ถูกใช้งานโดย user อื่นแล้ว')
+        } else if (code.includes('manual_linking') || code.includes('disabled')) {
+          showToast('error', 'ระบบยังไม่เปิดใช้งาน — กรุณาติดต่อ admin')
+        } else {
+          showToast('error', `เชื่อมต่อ Google ไม่สำเร็จ: ${error.message}`)
+        }
+        setConnectingGoogle(false)
+      }
+      // ถ้า success → จะ redirect ไป Google ทันที, ไม่ต้องทำอะไรต่อ
+    } catch (e) {
+      showToast('error', 'เชื่อมต่อ Google ไม่สำเร็จ')
+      setConnectingGoogle(false)
+    }
+  }
+
   const showToast = (type, message) => {
     setToast({ type, message })
     setTimeout(() => setToast(null), 4000)
@@ -99,6 +137,11 @@ export default function SettingsPage() {
 
   const isLineConnected = !!profile?.line_user_id
 
+  // ใช้ identities array แทน app_metadata.provider เพราะ provider แสดงแค่ login รอบล่าสุด
+  const googleIdentity = user?.identities?.find(i => i.provider === 'google')
+  const isGoogleConnected = !!googleIdentity
+  const googleEmail = googleIdentity?.identity_data?.email
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Toast */}
@@ -116,7 +159,6 @@ export default function SettingsPage() {
       <header className="border-b border-gray-900">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <button
-            //onClick={() => router.push('/dashboard')}
             onClick={() => router.replace('/dashboard')}
             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-900 transition"
           >
@@ -159,7 +201,6 @@ export default function SettingsPage() {
           <div className="bg-gray-900 rounded-xl overflow-hidden divide-y divide-gray-800">
             {/* LINE row */}
             <div className="p-4 flex items-center gap-3">
-              {/* LINE logo */}
               <div className="w-10 h-10 rounded-full bg-[#06C755] flex items-center justify-center flex-shrink-0">
                 <svg className="w-6 h-6" viewBox="0 0 24 24" fill="white">
                   <path d="M12 2C6.48 2 2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15.5H7.5v-3H10V10c0-2.21 1.79-4 4-4h2.5v3H14c-.55 0-1 .45-1 1v2.5h3.5l-.5 3H13V21.8c4.56-.93 8-4.96 8-9.8C21 6.48 16.52 2 12 2z" />
@@ -206,11 +247,17 @@ export default function SettingsPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">Google</p>
-                <p className="text-xs text-gray-500 truncate">
-                  {user?.app_metadata?.provider === 'google' ? user?.email : 'ยังไม่ได้เชื่อมต่อ'}
-                </p>
+                {isGoogleConnected ? (
+                  <p className="text-xs text-green-400 truncate">
+                    {googleEmail || 'เชื่อมต่อแล้ว'}
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    ยังไม่ได้เชื่อมต่อ
+                  </p>
+                )}
               </div>
-              {user?.app_metadata?.provider === 'google' ? (
+              {isGoogleConnected ? (
                 <div className="flex items-center gap-1.5 text-green-400">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -218,10 +265,25 @@ export default function SettingsPage() {
                   <span className="text-xs font-medium">เชื่อมต่อแล้ว</span>
                 </div>
               ) : (
-                <span className="text-xs text-gray-600">—</span>
+                <button
+                  onClick={handleConnectGoogle}
+                  disabled={connectingGoogle}
+                  className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white text-xs font-medium rounded-lg transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {connectingGoogle ? 'กำลังเชื่อม…' : 'เชื่อมต่อ'}
+                </button>
               )}
             </div>
           </div>
+
+          {/* Inline hint สำหรับ user ที่ไม่ได้ link ทั้ง 2 */}
+          {(!isLineConnected || !isGoogleConnected) && (
+            <p className="mt-2 text-xs text-gray-600 leading-relaxed px-1">
+              หมายเหตุ: หากบัญชี LINE หรือ Google ที่คุณจะเชื่อม
+              เคยถูกใช้งานกับ SlipScan มาก่อน (เช่น เคยเปิดผ่าน LINE OA)
+              จะถือว่าเป็นคนละบัญชี ไม่สามารถเชื่อมข้ามได้
+            </p>
+          )}
         </section>
 
         {/* Credits section */}
