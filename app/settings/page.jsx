@@ -40,11 +40,14 @@ export default function SettingsPage() {
 
     if (!hasAnyCallback) return
 
+    // clear URL ทันที ก่อน handle — กัน toast ซ้ำตอนกด back แล้วกลับมา
+    window.history.replaceState(null, '', '/settings')
+
     const handleCallback = async () => {
       // LINE success (n8n flow ที่ verify ผ่าน DB ของเราเอง)
       if (linked === 'true' || linked === 'line') {
         showToast('success', 'เชื่อมต่อ LINE สำเร็จ 🎉')
-        window.history.replaceState({}, '', '/settings')
+
         return
       }      
 
@@ -60,7 +63,8 @@ export default function SettingsPage() {
           } else {
             showToast('error', 'เชื่อมต่อ Google ไม่สำเร็จ')
           }
-          window.history.replaceState({}, '', '/settings')
+
+
           return
         }
 
@@ -79,7 +83,7 @@ export default function SettingsPage() {
           showToast('error', 'ไม่สามารถยืนยันการเชื่อมต่อได้')
         }
 
-        window.history.replaceState({}, '', '/settings')
+
       }
 
       // LINE error (query string จาก /auth/line/callback)
@@ -90,7 +94,7 @@ export default function SettingsPage() {
           state_mismatch: 'พบปัญหาด้านความปลอดภัย ลองใหม่อีกครั้ง'
         }
         showToast('error', errMap[queryError] || `เกิดข้อผิดพลาด: ${queryError}`)
-        window.history.replaceState({}, '', '/settings')
+
         return
       }
     }
