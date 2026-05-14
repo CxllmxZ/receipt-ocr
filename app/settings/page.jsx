@@ -46,19 +46,7 @@ export default function SettingsPage() {
         showToast('success', 'เชื่อมต่อ LINE สำเร็จ 🎉')
         window.history.replaceState({}, '', '/settings')
         return
-      }
-
-      // LINE error (query string จาก /auth/line/callback)
-      if (queryError) {
-        const errMap = {
-          line_already_linked: 'LINE account นี้ถูกใช้งานโดย user อื่นแล้ว',
-          failed: 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง',
-          state_mismatch: 'พบปัญหาด้านความปลอดภัย ลองใหม่อีกครั้ง'
-        }
-        showToast('error', errMap[queryError] || `เกิดข้อผิดพลาด: ${queryError}`)
-        window.history.replaceState({}, '', '/settings')
-        return
-      }
+      }      
 
       // Google flow — มี hash error หรือ linked=google
       if (linked === 'google' || hashError) {
@@ -96,6 +84,18 @@ export default function SettingsPage() {
         }
 
         window.history.replaceState({}, '', '/settings')
+      }
+
+      // LINE error (query string จาก /auth/line/callback)
+      if (queryError) {
+        const errMap = {
+          line_already_linked: 'LINE account นี้ถูกใช้งานโดย user อื่นแล้ว',
+          failed: 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง',
+          state_mismatch: 'พบปัญหาด้านความปลอดภัย ลองใหม่อีกครั้ง'
+        }
+        showToast('error', errMap[queryError] || `เกิดข้อผิดพลาด: ${queryError}`)
+        window.history.replaceState({}, '', '/settings')
+        return
       }
     }
 
