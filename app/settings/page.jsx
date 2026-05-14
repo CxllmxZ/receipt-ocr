@@ -48,10 +48,6 @@ export default function SettingsPage() {
         return
       }
 
-      console.log('[callback] hash:', hashStr)
-      console.log('[callback] hashError:', hashError)
-      console.log('[callback] hashErrorDesc:', hashErrorDesc)
-
       // LINE error (query string จาก /auth/line/callback)
       if (queryError) {
         const errMap = {
@@ -70,6 +66,10 @@ export default function SettingsPage() {
           const isAlreadyLinked =
             hashErrorCode === 'identity_already_exists' ||
             (hashErrorDesc || '').toLowerCase().includes('already')
+
+            console.log('[debug] hashErrorCode:', hashErrorCode)
+            console.log('[debug] hashErrorDesc:', hashErrorDesc)
+            console.log('[debug] isAlreadyLinked check:', hashErrorCode === 'identity_already_exists')
 
           if (isAlreadyLinked) {
             showToast('error', 'Google account นี้ถูกใช้งานโดย user อื่นแล้ว')
