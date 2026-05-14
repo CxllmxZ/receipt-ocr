@@ -51,10 +51,6 @@ export default function SettingsPage() {
       // Google flow — มี hash error หรือ linked=google
       if (linked === 'google' || hashError) {
         if (hashError) {
-          console.log('[debug] hashErrorCode:', hashErrorCode)
-          console.log('[debug] hashErrorDesc:', hashErrorDesc)
-          console.log('[debug] isAlreadyLinked check:', hashErrorCode === 'identity_already_exists')
-
           const isAlreadyLinked =
             hashErrorCode === 'identity_already_exists' ||
             (hashErrorDesc || '').toLowerCase().includes('already')            
