@@ -53,6 +53,10 @@ export default function SettingsPage() {
 
       // Google flow — มี hash error หรือ linked=google
       if (linked === 'google' || hashError) {
+        // ตรวจว่ามี pending flag จริงไหม — กัน toast ซ้ำจาก bfcache/browser restore
+        const isPending = sessionStorage.getItem('google_link_pending')
+        sessionStorage.removeItem('google_link_pending')
+        if (!isPending) return
         if (hashError) {
           const isAlreadyLinked =
             hashErrorCode === 'identity_already_exists' ||
@@ -145,6 +149,7 @@ export default function SettingsPage() {
 
   const handleConnectGoogle = async () => {
     setConnectingGoogle(true)
+    sessionStorage.setItem('google_link_pending', '1')
     try {
       const { error } = await supabase.auth.linkIdentity({
         provider: 'google',
@@ -153,6 +158,7 @@ export default function SettingsPage() {
         }
       })
       if (error) {
+        sessionStorage.removeItem('google_link_pending')
         const code = error.code || error.message || ''
         if (code.includes('identity_already_exists') || code.includes('already')) {
           showToast('error', 'Google account นี้ถูกใช้งานโดย user อื่นแล้ว')
