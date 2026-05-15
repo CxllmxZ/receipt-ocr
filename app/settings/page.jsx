@@ -63,6 +63,8 @@ export default function SettingsPage() {
           } else {
             showToast('error', 'เชื่อมต่อ Google ไม่สำเร็จ')
           }
+
+
           return
         }
 
@@ -80,6 +82,8 @@ export default function SettingsPage() {
         } catch (e) {
           showToast('error', 'ไม่สามารถยืนยันการเชื่อมต่อได้')
         }
+
+
       }
 
       // LINE error (query string จาก /auth/line/callback)
