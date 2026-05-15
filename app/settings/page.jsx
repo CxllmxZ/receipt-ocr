@@ -78,7 +78,7 @@ export default function SettingsPage() {
           if (hasGoogle) {
             showToast('success', 'เชื่อมต่อ Google สำเร็จ 🎉')
             // reload หลัง 1 วินาที เพื่อให้ toast แสดงก่อน แล้ว UI จะ refresh สมบูรณ์
-            setTimeout(() => window.location.replace('/settings'), 1000)
+            //setTimeout(() => window.location.replace('/settings'), 1000)
           } else {
             showToast('error', 'Google account นี้อาจถูกใช้งานโดย user อื่นแล้ว')
           }
