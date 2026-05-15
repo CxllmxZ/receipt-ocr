@@ -66,38 +66,52 @@ export default function LiffPage() {
   }, [accessToken])
 
   const handleUpload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file || !accessToken) return
+    const files = Array.from(e.target.files || []).slice(0, 5)
+    if (!files.length || !accessToken) return
 
     setUploading(true)
     setError(null)
 
-    const formData = new FormData()
-    formData.append('image', file)
-
-    try {
-      const res = await fetch(`${N8N_BASE}/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: formData
-      })
-      const data = await res.json()
-
-      if (data.success) {
-        setResult(data)
-        if (typeof data.remaining === 'number') {
-          setCredits(data.remaining)
-        }
-        refreshHistory()
-      } else {
-        setError(data.reject_reason || data.error || 'อัปโหลดไม่สำเร็จ')
+    const results = []
+    for (let i = 0; i < files.length; i++) {
+      if (files.length > 1) {
+        setError(`กำลังประมวลผล ${i + 1}/${files.length}...`)
       }
-    } catch (err) {
-      setError('เกิดข้อผิดพลาด ลองใหม่อีกครั้ง')
-    } finally {
-      setUploading(false)
-      e.target.value = ''
+
+      const formData = new FormData()
+      formData.append('image', files[i])
+
+      try {
+        const res = await fetch(`${N8N_BASE}/upload`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: formData
+        })
+        const data = await res.json()
+
+        if (data.success) {
+          results.push(data)
+          if (typeof data.remaining === 'number') {
+            setCredits(data.remaining)
+          }
+        } else {
+          setError(data.reject_reason || data.error || `รูปที่ ${i + 1} อัปโหลดไม่สำเร็จ`)
+          break
+        }
+      } catch (err) {
+        setError(`รูปที่ ${i + 1} เกิดข้อผิดพลาด`)
+        break
+      }
     }
+
+    if (results.length > 0) {
+      setResult(results[results.length - 1])
+      setError(null)
+      refreshHistory()
+    }
+
+    setUploading(false)
+    e.target.value = ''
   }
 
   const handleOpenWeb = async () => {
@@ -253,7 +267,7 @@ export default function LiffPage() {
           <input
             type="file"
             accept="image/*"
-            capture="environment"
+            multiple
             onChange={handleUpload}
             disabled={uploading}
             className="hidden"
