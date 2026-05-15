@@ -225,11 +225,11 @@ export default function SettingsPage() {
           <div className="bg-gray-900 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                {(user?.email || 'U')[0].toUpperCase()}
+                {(profile?.display_name || user?.email || 'U')[0].toUpperCase()}
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">
-                  {user?.email || '—'}
+                  {profile?.display_name || user?.email || '—'}
                 </p>
                 <p className="text-xs text-gray-500">
                   {user?.app_metadata?.provider === 'google' ? 'Google account' : 'Email account'}
