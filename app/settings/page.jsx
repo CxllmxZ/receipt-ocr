@@ -70,12 +70,15 @@ export default function SettingsPage() {
 
         // ไม่มี hash error แต่มี linked=google → verify จริงผ่าน server
         try {
+          // force refresh session ก่อน — getUser() อาจ return cached session ที่ยังไม่มี Google identity
+          await supabase.auth.refreshSession()
           const { data: { user: freshUser } } = await supabase.auth.getUser()
           const hasGoogle = freshUser?.identities?.some(i => i.provider === 'google')
 
           if (hasGoogle) {
             showToast('success', 'เชื่อมต่อ Google สำเร็จ 🎉')
-            setUser(freshUser)
+            // reload หลัง 1 วินาที เพื่อให้ toast แสดงก่อน แล้ว UI จะ refresh สมบูรณ์
+            setTimeout(() => window.location.replace('/settings'), 1000)
           } else {
             showToast('error', 'Google account นี้อาจถูกใช้งานโดย user อื่นแล้ว')
           }
