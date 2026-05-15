@@ -46,6 +46,9 @@ export default function SettingsPage() {
     const handleCallback = async () => {
       // LINE success (n8n flow ที่ verify ผ่าน DB ของเราเอง)
       if (linked === 'true' || linked === 'line') {
+        const isPending = sessionStorage.getItem('line_link_pending')
+        sessionStorage.removeItem('line_link_pending')
+        if (!isPending) return
         showToast('success', 'เชื่อมต่อ LINE สำเร็จ 🎉')
 
         return
@@ -134,6 +137,7 @@ export default function SettingsPage() {
   const handleConnectLine = () => {
     const state = Math.random().toString(36).substring(2)
     sessionStorage.setItem('line_oauth_state', state)
+    sessionStorage.setItem('line_link_pending', '1')
 
     const params = new URLSearchParams({
       response_type: 'code',
