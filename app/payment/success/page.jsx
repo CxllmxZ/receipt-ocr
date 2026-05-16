@@ -1,14 +1,14 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const fromLiff = searchParams.get('from') === 'liff'
 
   useEffect(() => {
-    if (fromLiff) return // ไม่ auto-close ถ้ามาจาก LIFF
+    if (fromLiff) return
 
     const timer = setTimeout(() => {
       window.close()
@@ -51,5 +51,17 @@ export default function PaymentSuccessPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-gray-700 border-t-green-600 rounded-full animate-spin" />
+      </div>
+    }>
+      <PaymentSuccessContent />
+    </Suspense>
   )
 }
