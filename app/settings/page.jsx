@@ -94,13 +94,15 @@ export default function SettingsPage() {
 
       // LINE error (query string จาก /auth/line/callback)
       if (queryError) {
+        const isPending = sessionStorage.getItem('line_link_pending')
+        sessionStorage.removeItem('line_link_pending')
+        if (!isPending) return
         const errMap = {
           line_already_linked: 'LINE account นี้ถูกใช้งานโดย user อื่นแล้ว',
           failed: 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง',
           state_mismatch: 'พบปัญหาด้านความปลอดภัย ลองใหม่อีกครั้ง'
         }
         showToast('error', errMap[queryError] || `เกิดข้อผิดพลาด: ${queryError}`)
-
         return
       }
     }
