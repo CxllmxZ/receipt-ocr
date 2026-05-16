@@ -10,6 +10,7 @@ export default function LiffPage() {
   const [profile, setProfile] = useState(null)
   const [credits, setCredits] = useState(null)
   const [receipts, setReceipts] = useState([])
+  const [totalReceipts, setTotalReceipts] = useState(0)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [openingWeb, setOpeningWeb] = useState(false)
@@ -43,6 +44,7 @@ export default function LiffPage() {
         if (histRes.ok) {
           const hist = await histRes.json()
           setReceipts(hist.receipts || [])
+          setTotalReceipts(hist.total ?? hist.receipts?.length ?? 0)
         }
       } catch (err) {
         setError('โหลดข้อมูลไม่สำเร็จ')
@@ -63,6 +65,7 @@ export default function LiffPage() {
       if (res.ok) {
         const data = await res.json()
         setReceipts(data.receipts || [])
+        setTotalReceipts(data.total ?? data.receipts?.length ?? 0)
       }
     } catch {}
   }, [accessToken])
@@ -97,7 +100,15 @@ export default function LiffPage() {
             setCredits(data.remaining)
           }
         } else {
-          setError(data.reject_reason || data.error || `รูปที่ ${i + 1} อัปโหลดไม่สำเร็จ`)
+          const errMap = {
+            no_credit: 'Credits หมดแล้ว กรุณาซื้อเพิ่ม',
+            quota_exceeded: 'Credits หมดแล้ว กรุณาซื้อเพิ่ม',
+            ocr_failed: 'อ่านสลิปไม่สำเร็จ กรุณาลองใหม่',
+            parse_failed: 'วิเคราะห์สลิปไม่สำเร็จ กรุณาลองใหม่',
+            not_a_slip: 'ไฟล์นี้ไม่ใช่สลิป กรุณาอัปโหลดรูปสลิปโอนเงิน',
+            unauthorized: 'กรุณาเข้าสู่ระบบใหม่',
+          }
+          setError(errMap[data.error] || data.reject_reason || data.error || `รูปที่ ${i + 1} อัปโหลดไม่สำเร็จ`)
           break
         }
       } catch (err) {
@@ -304,9 +315,9 @@ export default function LiffPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500">
             สลิปล่าสุด
           </h2>
-          {receipts.length > 0 && (
+          {totalReceipts > 0 && (
             <span className="text-xs text-gray-400 dark:text-gray-600">
-              {receipts.length} รายการ
+              {totalReceipts} รายการ
             </span>
           )}
         </div>
