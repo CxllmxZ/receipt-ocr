@@ -151,6 +151,8 @@ export default function LiffPage() {
   }
 
   const handleBuy = async (planId) => {
+    console.log('[buy] user_id:', profile?.user_id)
+    console.log('[buy] plan:', planId)
     setBuyingPlan(planId)
     try {
       const res = await fetch(`${N8N_BASE}/create-checkout`, {
