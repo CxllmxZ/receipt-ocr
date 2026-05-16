@@ -101,7 +101,7 @@ export default function LiffPage() {
           }
         } else {
           const errMap = {
-            no_credit: 'Credits หมดแล้ว กรุณาซื้อเพิ่ม',
+            no_credits: 'Credits หมดแล้ว กรุณาซื้อเพิ่ม',
             quota_exceeded: 'Credits หมดแล้ว กรุณาซื้อเพิ่ม',
             ocr_failed: 'อ่านสลิปไม่สำเร็จ กรุณาลองใหม่',
             parse_failed: 'วิเคราะห์สลิปไม่สำเร็จ กรุณาลองใหม่',
