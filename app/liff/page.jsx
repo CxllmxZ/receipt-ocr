@@ -15,6 +15,8 @@ export default function LiffPage() {
   const [openingWeb, setOpeningWeb] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const [showBuyModal, setShowBuyModal] = useState(false)
+  const [buyingPlan, setBuyingPlan] = useState(null)
 
   // Load profile + history on mount
   useEffect(() => {
@@ -148,6 +150,35 @@ export default function LiffPage() {
     }
   }
 
+  const handleBuy = async (planId) => {
+    setBuyingPlan(planId)
+    try {
+      const res = await fetch(`${N8N_BASE}/create-checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: profile?.user_id,
+          plan: planId,
+          from: 'liff'
+        })
+      })
+      const data = await res.json()
+      const checkoutUrl = Array.isArray(data) ? data[0].url : data.url
+      if (!checkoutUrl) throw new Error('no url')
+
+      setShowBuyModal(false)
+      if (window.liff?.openWindow) {
+        window.liff.openWindow({ url: checkoutUrl, external: true })
+      } else {
+        window.open(checkoutUrl, '_blank', 'noopener,noreferrer')
+      }
+    } catch (err) {
+      setError('เกิดข้อผิดพลาด ลองใหม่อีกครั้ง')
+    } finally {
+      setBuyingPlan(null)
+    }
+  }
+
   // ---- Loading ----
   if (!liffReady || loading) {
     return (
@@ -174,21 +205,23 @@ export default function LiffPage() {
             credits หมดแล้ว
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
-            ซื้อ credits เพิ่มเพื่อสแกนสลิปต่อ<br />
-            กลับไปที่ web เพื่อจัดการ
+            ซื้อ credits เพิ่มเพื่อสแกนสลิปต่อ
           </p>
           <button
-            onClick={handleOpenWeb}
-            disabled={openingWeb}
-            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl text-sm font-medium transition"
+            onClick={() => setShowBuyModal(true)}
+            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-xl text-sm font-medium transition mb-3"
           >
-            {openingWeb ? 'กำลังเปิด...' : 'เปิด web'}
-            {!openingWeb && (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-              </svg>
-            )}
+            ซื้อ Credits
           </button>
+          <div>
+            <button
+              onClick={handleOpenWeb}
+              disabled={openingWeb}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 transition"
+            >
+              {openingWeb ? 'กำลังเปิด...' : 'หรือจัดการบัญชีใน web'}
+            </button>
+          </div>
 
           {error && (
             <p className="mt-3 text-xs text-red-500 dark:text-red-400">
@@ -225,12 +258,15 @@ export default function LiffPage() {
               {profile?.display_name || 'ผู้ใช้'}
             </p>
           </div>
-          <div className="flex items-center gap-1.5 bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full text-sm font-semibold">
+          <button
+            onClick={() => setShowBuyModal(true)}
+            className="flex items-center gap-1.5 bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full text-sm font-semibold hover:bg-green-100 dark:hover:bg-green-500/20 transition"
+          >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M5.5 4l-3 7L12 22l9.5-11-3-7h-13zm.5 1h12l2.4 5.6L12 19.5 3.6 10.6 6 5z" />
             </svg>
             <span>{credits ?? '-'}</span>
-          </div>
+          </button>
         </div>
       </header>
 
@@ -341,6 +377,88 @@ export default function LiffPage() {
       {result && (
         <ResultModal result={result} onClose={() => setResult(null)} />
       )}
+
+      {/* Buy Modal */}
+      {showBuyModal && (
+        <BuyModal
+          onBuy={handleBuy}
+          onClose={() => setShowBuyModal(false)}
+          buyingPlan={buyingPlan}
+        />
+      )}
+    </div>
+  )
+}
+
+const PLANS = [
+  { id: 'starter', name: 'Starter', price: 1, credits: 100, bonus: 0, desc: 'ทดลองใช้' },
+  { id: 'pro', name: 'Pro', price: 5, credits: 500, bonus: 50, desc: 'ยอดนิยม คุ้มที่สุด', highlight: true },
+  { id: 'whale', name: 'Whale', price: 10, credits: 1000, bonus: 200, desc: 'สำหรับคนใช้เยอะ' },
+]
+
+function BuyModal({ onBuy, onClose, buyingPlan }) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-3 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md overflow-hidden border border-gray-200 dark:border-gray-800 animate-in slide-in-from-bottom-4 duration-300"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">ซื้อ Credits</p>
+            <p className="text-xs text-gray-500 dark:text-gray-500">ซื้อครั้งเดียว ไม่มีรายเดือน</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {PLANS.map(plan => (
+            <button
+              key={plan.id}
+              onClick={() => onBuy(plan.id)}
+              disabled={!!buyingPlan}
+              className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border transition disabled:opacity-50 ${
+                plan.highlight
+                  ? 'bg-green-600 border-green-600 text-white hover:bg-green-500'
+                  : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              <div className="text-left">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold">{plan.name}</p>
+                  {plan.highlight && (
+                    <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">ยอดนิยม</span>
+                  )}
+                </div>
+                <p className={`text-xs mt-0.5 ${plan.highlight ? 'text-green-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                  {(plan.credits + plan.bonus).toLocaleString()} credits
+                  {plan.bonus > 0 && <span className="ml-1 text-green-400">+{plan.bonus} โบนัส</span>}
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0 ml-3">
+                {buyingPlan === plan.id ? (
+                  <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <p className="text-base font-bold">${plan.price}</p>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="px-4 pb-4 text-center">
+          <p className="text-[11px] text-gray-400 dark:text-gray-600">
+            Credits ไม่มีวันหมดอายุ · ใช้ได้ทันทีหลังชำระเงิน
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
