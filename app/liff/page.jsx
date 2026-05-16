@@ -196,7 +196,8 @@ export default function LiffPage() {
   // ---- Paywall ----
   if (credits === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950 p-6">
+      <>
+        <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950 p-6">
         <div className="text-center max-w-sm">
           <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 flex items-center justify-center">
             <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -232,8 +233,17 @@ export default function LiffPage() {
           )}
         </div>
       </div>
-    )
-  }
+
+      {showBuyModal && (
+        <BuyModal
+          onBuy={handleBuy}
+          onClose={() => setShowBuyModal(false)}
+          buyingPlan={buyingPlan}
+        />
+      )}
+    </>
+  )
+}
 
   // ---- Main ----
   return (
