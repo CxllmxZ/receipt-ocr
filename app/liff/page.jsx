@@ -193,58 +193,6 @@ export default function LiffPage() {
     )
   }
 
-  // ---- Paywall ----
-  if (credits === 0) {
-    return (
-      <>
-        <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950 p-6">
-        <div className="text-center max-w-sm">
-          <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 flex items-center justify-center">
-            <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            credits หมดแล้ว
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
-            ซื้อ credits เพิ่มเพื่อสแกนสลิปต่อ
-          </p>
-          <button
-            onClick={() => setShowBuyModal(true)}
-            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-xl text-sm font-medium transition mb-3"
-          >
-            ซื้อ Credits
-          </button>
-          <div>
-            <button
-              onClick={handleOpenWeb}
-              disabled={openingWeb}
-              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 transition"
-            >
-              {openingWeb ? 'กำลังเปิด...' : 'หรือจัดการบัญชีใน web'}
-            </button>
-          </div>
-
-          {error && (
-            <p className="mt-3 text-xs text-red-500 dark:text-red-400">
-              {error}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {showBuyModal && (
-        <BuyModal
-          onBuy={handleBuy}
-          onClose={() => setShowBuyModal(false)}
-          buyingPlan={buyingPlan}
-        />
-      )}
-    </>
-  )
-}
-
   // ---- Main ----
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white pb-safe">
@@ -281,6 +229,22 @@ export default function LiffPage() {
           </button>
         </div>
       </header>
+
+      {/* Paywall Banner */}
+      {credits === 0 && (
+        <div className="mx-4 mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">Credits หมดแล้ว</p>
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">ซื้อเพิ่มเพื่อสแกนต่อ</p>
+          </div>
+          <button
+            onClick={() => setShowBuyModal(true)}
+            className="flex-shrink-0 bg-green-600 hover:bg-green-500 text-white text-xs font-medium px-4 py-2 rounded-xl transition"
+          >
+            ซื้อ Credits
+          </button>
+        </div>
+      )}
 
       {/* Upload */}
       <section className="px-4 pt-5 pb-3">
