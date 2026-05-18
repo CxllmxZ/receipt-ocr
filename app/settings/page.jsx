@@ -61,9 +61,9 @@ export default function LiffPage() {
   useEffect(() => {
     if (loading) return
 
-    const params = new URLSearchParams(window.location.search)
+    console.log('[tab] window.location.href:', window.location.href)
     console.log('[tab] window.location.search:', window.location.search)
-  
+
     const params = new URLSearchParams(window.location.search)
     const tab = params.get('tab')
 
