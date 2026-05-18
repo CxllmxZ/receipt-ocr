@@ -61,9 +61,6 @@ export default function LiffPage() {
   useEffect(() => {
     if (loading) return
 
-    console.log('[tab] window.location.href:', window.location.href)
-    console.log('[tab] window.location.search:', window.location.search)
-
     const params = new URLSearchParams(window.location.search)
     const tab = params.get('tab')
 
@@ -254,6 +251,12 @@ export default function LiffPage() {
             <p className="text-sm font-medium truncate">
               {profile?.display_name || 'ผู้ใช้'}
             </p>
+          </div>
+          {/* DEBUG */}
+          <div className="fixed top-0 left-0 right-0 bg-yellow-400 text-black text-xs p-2 z-50 break-all">
+            href: {typeof window !== 'undefined' ? window.location.href : '-'}
+            <br />
+            tab state: {activeTab}
           </div>
           <button
             onClick={() => setShowBuyModal(true)}
