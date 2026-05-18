@@ -18,7 +18,6 @@ export default function LiffPage() {
   const [error, setError] = useState(null)
   const [showBuyModal, setShowBuyModal] = useState(false)
   const [buyingPlan, setBuyingPlan] = useState(null)
-  const [activeTab, setActiveTab] = useState('main')
 
   // Load profile + history on mount
   useEffect(() => {
@@ -56,28 +55,6 @@ export default function LiffPage() {
 
     fetchAll()
   }, [accessToken])
-
-  // Handle ?tab= query param หลังโหลดเสร็จ
-  useEffect(() => {
-    if (loading) return
-
-    const params = new URLSearchParams(window.location.search)
-    const tab = params.get('tab')
-
-    if (tab === 'buy') {
-      setShowBuyModal(true)
-      setActiveTab('buy')
-    } else if (tab === 'history') {
-      setActiveTab('history')
-      // scroll to history section
-      setTimeout(() => {
-        document.getElementById('history-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 100)
-    } else {
-      setActiveTab('main')
-    }
-  }, [loading])
-
 
   const refreshHistory = useCallback(async () => {
     if (!accessToken) return
@@ -230,6 +207,13 @@ export default function LiffPage() {
   // ---- Main ----
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white pb-safe">
+      {/* DEBUG - ลบทีหลัง */}
+      <div className="fixed top-0 left-0 right-0 bg-yellow-400 text-black text-xs p-2 z-50 break-all">
+        href: {typeof window !== 'undefined' ? window.location.href : '-'}
+        <br />
+        tab state: {activeTab}
+      </div>
+
       {/* Header */}
       <header className="sticky top-0 z-10 backdrop-blur bg-white/80 dark:bg-gray-950/80 border-b border-gray-100 dark:border-gray-900">
         <div className="px-4 py-3 flex items-center gap-3">
@@ -251,12 +235,6 @@ export default function LiffPage() {
             <p className="text-sm font-medium truncate">
               {profile?.display_name || 'ผู้ใช้'}
             </p>
-          </div>
-          {/* DEBUG */}
-          <div className="fixed top-0 left-0 right-0 bg-yellow-400 text-black text-xs p-2 z-50 break-all">
-            href: {typeof window !== 'undefined' ? window.location.href : '-'}
-            <br />
-            tab state: {activeTab}
           </div>
           <button
             onClick={() => setShowBuyModal(true)}
@@ -339,10 +317,10 @@ export default function LiffPage() {
       </section>
 
       {/* History */}
-      <section id="history-section" className="px-4 pt-3 pb-6">
+      <section className="px-4 pt-3 pb-6">
         <div className="flex items-baseline justify-between mb-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500">
-            {activeTab === 'history' ? 'ประวัติทั้งหมด' : 'สลิปล่าสุด'}
+            สลิปล่าสุด
           </h2>
           {totalReceipts > 0 && (
             <span className="text-xs text-gray-400 dark:text-gray-600">
@@ -367,7 +345,7 @@ export default function LiffPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {receipts.slice(0, activeTab === 'history' ? 20 : 5).map(r => (
+            {receipts.slice(0, 5).map(r => (
               <ReceiptCard key={r.id} receipt={r} />
             ))}
           </div>
