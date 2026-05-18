@@ -1,372 +1,588 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, useCallback } from 'react'
+import { useLiff } from '@/hooks/useLiff'
 
 const N8N_BASE = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL?.replace(/\/upload$/, '') || 'https://n8n-production-8d4e.up.railway.app/webhook'
-const LINE_LOGIN_CHANNEL_ID = process.env.NEXT_PUBLIC_LINE_LOGIN_CHANNEL_ID || '2010067305'
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://receipt-ocr-rouge.vercel.app'
-const REDIRECT_URI = `${WEB_URL}/auth/line/callback`
 
-export default function SettingsPage() {
-  const router = useRouter()
-
-  const [user, setUser] = useState(null)
+export default function LiffPage() {
+  const { accessToken, ready: liffReady } = useLiff()
   const [profile, setProfile] = useState(null)
+  const [credits, setCredits] = useState(null)
+  const [receipts, setReceipts] = useState([])
+  const [totalReceipts, setTotalReceipts] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState(null)
-  const [connectingGoogle, setConnectingGoogle] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [openingWeb, setOpeningWeb] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
+  const [showBuyModal, setShowBuyModal] = useState(false)
+  const [buyingPlan, setBuyingPlan] = useState(null)
+  const [activeTab, setActiveTab] = useState('main')
 
-  const showToast = (type, message) => {
-    setToast({ type, message })
-    setTimeout(() => setToast(null), 4000)
-  }
-
-  // Callback handler — รวม query + hash + verify identities จริง
+  // Load profile + history on mount
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const hashStr = window.location.hash.startsWith('#')
-      ? window.location.hash.substring(1)
-      : window.location.hash
-    const hashParams = new URLSearchParams(hashStr)
+    if (!accessToken) return
 
-    const linked = params.get('linked')
-    const queryError = params.get('error')
-    const hashError = hashParams.get('error') /*|| hashParams.get('error_code')*/
-    const hashErrorCode = hashParams.get('error_code')
-    const hashErrorDesc = hashParams.get('error_description')
+    const fetchAll = async () => {
+      setLoading(true)
+      try {
+        const [meRes, histRes] = await Promise.all([
+          fetch(`${N8N_BASE}/me`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          }),
+          fetch(`${N8N_BASE}/history`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          })
+        ])
 
-    const hasAnyCallback = linked || queryError || hashError
-
-    if (!hasAnyCallback) return
-
-    // clear URL ทันที ก่อน handle — กัน toast ซ้ำตอนกด back แล้วกลับมา
-    window.history.replaceState(null, '', '/settings')
-
-    const handleCallback = async () => {
-      // LINE success (n8n flow ที่ verify ผ่าน DB ของเราเอง)
-      if (linked === 'true' || linked === 'line') {
-        const isPending = sessionStorage.getItem('line_link_pending')
-        sessionStorage.removeItem('line_link_pending')
-        if (!isPending) return
-        showToast('success', 'เชื่อมต่อ LINE สำเร็จ 🎉')
-
-        return
-      }      
-
-      // Google flow — มี hash error หรือ linked=google
-      if (linked === 'google' || hashError) {
-        if (hashError) {
-          const isAlreadyLinked =
-            hashErrorCode === 'identity_already_exists' ||
-            (hashErrorDesc || '').toLowerCase().includes('already')            
-
-          if (isAlreadyLinked) {
-            showToast('error', 'Google account นี้ถูกใช้งานโดย user อื่นแล้ว')
-          } else {
-            showToast('error', 'เชื่อมต่อ Google ไม่สำเร็จ')
-          }
-
-
-          return
+        if (meRes.ok) {
+          const me = await meRes.json()
+          setProfile(me)
+          setCredits(me.credits)
         }
 
-        // ไม่มี hash error แต่มี linked=google → verify จริงผ่าน server
-        try {
-          // force refresh session ก่อน — getUser() อาจ return cached session ที่ยังไม่มี Google identity
-          await supabase.auth.refreshSession()
-          const { data: { user: freshUser } } = await supabase.auth.getUser()
-          const hasGoogle = freshUser?.identities?.some(i => i.provider === 'google')
-
-          if (hasGoogle) {
-            showToast('success', 'เชื่อมต่อ Google สำเร็จ 🎉')
-            // reload หลัง 1 วินาที เพื่อให้ toast แสดงก่อน แล้ว UI จะ refresh สมบูรณ์
-            //setTimeout(() => window.location.replace('/settings'), 1000)
-          } else {
-            showToast('error', 'Google account นี้อาจถูกใช้งานโดย user อื่นแล้ว')
-          }
-        } catch (e) {
-          showToast('error', 'ไม่สามารถยืนยันการเชื่อมต่อได้')
+        if (histRes.ok) {
+          const hist = await histRes.json()
+          setReceipts(hist.receipts || [])
+          setTotalReceipts(hist.total ?? hist.receipts?.length ?? 0)
         }
-
-
-      }
-
-      // LINE error (query string จาก /auth/line/callback)
-      if (queryError) {
-        const isPending = sessionStorage.getItem('line_link_pending')
-        sessionStorage.removeItem('line_link_pending')
-        if (!isPending) return
-        const errMap = {
-          line_already_linked: 'LINE account นี้ถูกใช้งานโดย user อื่นแล้ว',
-          failed: 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง',
-          state_mismatch: 'พบปัญหาด้านความปลอดภัย ลองใหม่อีกครั้ง'
-        }
-        showToast('error', errMap[queryError] || `เกิดข้อผิดพลาด: ${queryError}`)
-        return
+      } catch (err) {
+        setError('โหลดข้อมูลไม่สำเร็จ')
+      } finally {
+        setLoading(false)
       }
     }
 
-    handleCallback()
-  }, [])
+    fetchAll()
+  }, [accessToken])
 
-  // Load user + profile
+  // Handle ?tab= query param หลังโหลดเสร็จ
   useEffect(() => {
-    const loadData = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
+    if (loading) return
+
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
+
+    if (tab === 'buy') {
+      setShowBuyModal(true)
+      setActiveTab('buy')
+    } else if (tab === 'history') {
+      setActiveTab('history')
+      // scroll to history section
+      setTimeout(() => {
+        document.getElementById('history-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    } else {
+      setActiveTab('main')
+    }
+  }, [loading])
+
+
+  const refreshHistory = useCallback(async () => {
+    if (!accessToken) return
+    try {
+      const res = await fetch(`${N8N_BASE}/history`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setReceipts(data.receipts || [])
+        setTotalReceipts(data.total ?? data.receipts?.length ?? 0)
       }
-      setUser(session.user)
+    } catch {}
+  }, [accessToken])
+
+  const handleUpload = async (e) => {
+    const files = Array.from(e.target.files || []).slice(0, 5)
+    if (!files.length || !accessToken) return
+
+    setUploading(true)
+    setError(null)
+
+    const results = []
+    for (let i = 0; i < files.length; i++) {
+      if (files.length > 1) {
+        setError(`กำลังประมวลผล ${i + 1}/${files.length}...`)
+      }
+
+      const formData = new FormData()
+      formData.append('image', files[i])
 
       try {
-        const res = await fetch(`${N8N_BASE}/me`, {
-          headers: { Authorization: `Bearer ${session.access_token}` }
+        const res = await fetch(`${N8N_BASE}/upload`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: formData
         })
-        if (res.ok) {
-          const data = await res.json()
-          setProfile(data)
-        }
-      } catch {}
+        const data = await res.json()
 
-      setLoading(false)
-    }
-
-    loadData()
-  }, [])
-
-  const handleConnectLine = () => {
-    const state = Math.random().toString(36).substring(2)
-    sessionStorage.setItem('line_oauth_state', state)
-    sessionStorage.setItem('line_link_pending', '1')
-
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: LINE_LOGIN_CHANNEL_ID,
-      redirect_uri: REDIRECT_URI,
-      scope: 'profile',
-      state
-    })
-
-    window.location.href = `https://access.line.me/oauth2/v2.1/authorize?${params}`
-  }
-
-  const handleConnectGoogle = async () => {
-    setConnectingGoogle(true)
-    try {
-      const { error } = await supabase.auth.linkIdentity({
-        provider: 'google',
-        options: {
-          redirectTo: `${WEB_URL}/settings?linked=google`
-        }
-      })
-      if (error) {
-        const code = error.code || error.message || ''
-        if (code.includes('identity_already_exists') || code.includes('already')) {
-          showToast('error', 'Google account นี้ถูกใช้งานโดย user อื่นแล้ว')
-        } else if (code.includes('manual_linking') || code.includes('disabled')) {
-          showToast('error', 'ระบบยังไม่เปิดใช้งาน — กรุณาติดต่อ admin')
+        if (data.success) {
+          results.push(data)
+          if (typeof data.remaining === 'number') {
+            setCredits(data.remaining)
+          }
         } else {
-          showToast('error', `เชื่อมต่อ Google ไม่สำเร็จ: ${error.message}`)
+          const errMap = {
+            no_credits: 'Credits หมดแล้ว กรุณาซื้อเพิ่ม',
+            quota_exceeded: 'Credits หมดแล้ว กรุณาซื้อเพิ่ม',
+            ocr_failed: 'อ่านสลิปไม่สำเร็จ กรุณาลองใหม่',
+            parse_failed: 'วิเคราะห์สลิปไม่สำเร็จ กรุณาลองใหม่',
+            not_a_slip: 'ไฟล์นี้ไม่ใช่สลิป กรุณาอัปโหลดรูปสลิปโอนเงิน',
+            unauthorized: 'กรุณาเข้าสู่ระบบใหม่',
+          }
+          setError(errMap[data.error] || data.reject_reason || data.error || `รูปที่ ${i + 1} อัปโหลดไม่สำเร็จ`)
+          break
         }
-        setConnectingGoogle(false)
+      } catch (err) {
+        setError(`รูปที่ ${i + 1} เกิดข้อผิดพลาด`)
+        break
       }
-    } catch (e) {
-      showToast('error', 'เชื่อมต่อ Google ไม่สำเร็จ')
-      setConnectingGoogle(false)
+    }
+
+    if (results.length > 0) {
+      setResult(results[results.length - 1])
+      setError(null)
+      refreshHistory()
+    }
+
+    setUploading(false)
+    e.target.value = ''
+  }
+
+  const handleOpenWeb = async () => {
+    if (!accessToken || openingWeb) return
+
+    setOpeningWeb(true)
+    setError(null)
+
+    try {
+      const res = await fetch(`${N8N_BASE}/web-login`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      const data = await res.json()
+
+      if (data.success && data.redirect_url) {
+        // ถ้าอยู่ใน LIFF จริง ใช้ liff.openWindow (external browser)
+        // ถ้าเปิดจาก browser ปกติใช้ window.open
+        if (typeof window !== 'undefined' && window.liff?.openWindow) {
+          window.liff.openWindow({
+            url: data.redirect_url,
+            external: true
+          })
+        } else {
+          window.open(data.redirect_url, '_blank', 'noopener,noreferrer')
+        }
+      } else {
+        setError('เปิด web ไม่สำเร็จ')
+      }
+    } catch (err) {
+      setError('เกิดข้อผิดพลาด ลองใหม่อีกครั้ง')
+    } finally {
+      setOpeningWeb(false)
     }
   }
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+  const handleBuy = async (planId) => {
+    console.log('[buy] user_id:', profile?.user_id)
+    console.log('[buy] plan:', planId)
+    setBuyingPlan(planId)
+    try {
+      const res = await fetch(`${N8N_BASE}/create-checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: profile?.user_id,
+          plan: planId,
+          from: 'liff'
+        })
+      })
+      const data = await res.json()
+      const checkoutUrl = Array.isArray(data) ? data[0].url : data.url
+      if (!checkoutUrl) throw new Error('no url')
+
+      setShowBuyModal(false)
+      if (window.liff?.openWindow) {
+        window.liff.openWindow({ url: checkoutUrl, external: true })
+      } else {
+        window.open(checkoutUrl, '_blank', 'noopener,noreferrer')
+      }
+    } catch (err) {
+      setError('เกิดข้อผิดพลาด ลองใหม่อีกครั้ง')
+    } finally {
+      setBuyingPlan(null)
+    }
   }
 
-  if (loading) {
+  // ---- Loading ----
+  if (!liffReady || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
-        <div className="w-8 h-8 border-2 border-gray-700 border-t-green-600 rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-gray-300 dark:border-gray-700 border-t-green-600 rounded-full animate-spin" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">กำลังโหลด...</p>
+        </div>
       </div>
     )
   }
 
-  const isLineConnected = !!profile?.line_user_id
-
-  const googleIdentity = user?.identities?.find(i => i.provider === 'google')
-  const isGoogleConnected = !!googleIdentity
-  const googleEmail = googleIdentity?.identity_data?.email
-
+  // ---- Main ----
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg transition-all
-          ${toast.type === 'success'
-            ? 'bg-green-600 text-white'
-            : 'bg-red-500 text-white'
-          }`}>
-          {toast.message}
-        </div>
-      )}
-
-      <header className="border-b border-gray-900">
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
+    <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white pb-safe">
+      {/* Header */}
+      <header className="sticky top-0 z-10 backdrop-blur bg-white/80 dark:bg-gray-950/80 border-b border-gray-100 dark:border-gray-900">
+        <div className="px-4 py-3 flex items-center gap-3">
+          {profile?.picture_url ? (
+            <img
+              src={profile.picture_url}
+              alt={profile.display_name || 'avatar'}
+              className="w-9 h-9 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white text-sm font-semibold">
+              {(profile?.display_name || 'U')[0].toUpperCase()}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-gray-500 dark:text-gray-500 uppercase tracking-wide">
+              สวัสดี
+            </p>
+            <p className="text-sm font-medium truncate">
+              {profile?.display_name || 'ผู้ใช้'}
+            </p>
+          </div>
           <button
-            onClick={() => router.replace('/dashboard')}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-900 transition"
+            onClick={() => setShowBuyModal(true)}
+            className="flex items-center gap-1.5 bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-full text-sm font-semibold hover:bg-green-100 dark:hover:bg-green-500/20 transition"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M5.5 4l-3 7L12 22l9.5-11-3-7h-13zm.5 1h12l2.4 5.6L12 19.5 3.6 10.6 6 5z" />
             </svg>
+            <span>{credits ?? '-'}</span>
           </button>
-          <h1 className="font-semibold text-base">ตั้งค่า</h1>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <section>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
-            บัญชี
-          </p>
-          <div className="bg-gray-900 rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                {(profile?.display_name || user?.email || 'U')[0].toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {profile?.display_name || user?.email || '—'}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {user?.app_metadata?.provider === 'google' ? 'Google account' : 'Email account'}
-                </p>
-              </div>
-            </div>
+      {/* Paywall Banner */}
+      {credits === 0 && (
+        <div className="mx-4 mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">Credits หมดแล้ว</p>
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">ซื้อเพิ่มเพื่อสแกนต่อ</p>
           </div>
-        </section>
-
-        <section>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
-            บัญชีที่เชื่อมต่อ
-          </p>
-          <div className="bg-gray-900 rounded-xl overflow-hidden divide-y divide-gray-800">
-            <div className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#06C755] flex items-center justify-center flex-shrink-0">
-                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="white">
-                  <path d="M12 2C6.48 2 2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15.5H7.5v-3H10V10c0-2.21 1.79-4 4-4h2.5v3H14c-.55 0-1 .45-1 1v2.5h3.5l-.5 3H13V21.8c4.56-.93 8-4.96 8-9.8C21 6.48 16.52 2 12 2z" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">LINE</p>
-                {isLineConnected ? (
-                  <p className="text-xs text-green-400 truncate">
-                    {profile?.display_name || 'เชื่อมต่อแล้ว'}
-                  </p>
-                ) : (
-                  <p className="text-xs text-gray-500">
-                    ยังไม่ได้เชื่อมต่อ
-                  </p>
-                )}
-              </div>
-              {isLineConnected ? (
-                <div className="flex items-center gap-1.5 text-green-400">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                  <span className="text-xs font-medium">เชื่อมต่อแล้ว</span>
-                </div>
-              ) : (
-                <button
-                  onClick={handleConnectLine}
-                  className="px-3 py-1.5 bg-[#06C755] hover:bg-[#05b04a] text-white text-xs font-medium rounded-lg transition flex-shrink-0"
-                >
-                  เชื่อมต่อ
-                </button>
-              )}
-            </div>
-
-            <div className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Google</p>
-                {isGoogleConnected ? (
-                  <p className="text-xs text-green-400 truncate">
-                    {googleEmail || 'เชื่อมต่อแล้ว'}
-                  </p>
-                ) : (
-                  <p className="text-xs text-gray-500">
-                    ยังไม่ได้เชื่อมต่อ
-                  </p>
-                )}
-              </div>
-              {isGoogleConnected ? (
-                <div className="flex items-center gap-1.5 text-green-400">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                  <span className="text-xs font-medium">เชื่อมต่อแล้ว</span>
-                </div>
-              ) : (
-                <button
-                  onClick={handleConnectGoogle}
-                  disabled={connectingGoogle}
-                  className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white text-xs font-medium rounded-lg transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {connectingGoogle ? 'กำลังเชื่อม…' : 'เชื่อมต่อ'}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {(!isLineConnected || !isGoogleConnected) && (
-            <p className="mt-2 text-xs text-gray-600 leading-relaxed px-1">
-              หมายเหตุ: หากบัญชี LINE หรือ Google ที่คุณจะเชื่อม
-              เคยถูกใช้งานกับ SlipScan มาก่อน (เช่น เคยเปิดผ่าน LINE OA)
-              จะถือว่าเป็นคนละบัญชี ไม่สามารถเชื่อมข้ามได้
-            </p>
-          )}
-        </section>
-
-        <section>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
-            Credits
-          </p>
-          <div className="bg-gray-900 rounded-xl p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
-                <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M5.5 4l-3 7L12 22l9.5-11-3-7h-13zm.5 1h12l2.4 5.6L12 19.5 3.6 10.6 6 5z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Credits คงเหลือ</p>
-                <p className="text-xs text-gray-500">
-                  ใช้สแกนสลิปได้ {profile?.credits ?? '—'} ครั้ง
-                </p>
-              </div>
-            </div>
-            <span className="text-2xl font-semibold text-green-400 tabular-nums">
-              {profile?.credits ?? '—'}
-            </span>
-          </div>
-        </section>
-
-        <section>
           <button
-            onClick={handleSignOut}
-            className="w-full py-3 rounded-xl border border-red-900 text-red-400 text-sm font-medium hover:bg-red-500/10 transition"
+            onClick={() => setShowBuyModal(true)}
+            className="flex-shrink-0 bg-green-600 hover:bg-green-500 text-white text-xs font-medium px-4 py-2 rounded-xl transition"
           >
-            ออกจากระบบ
+            ซื้อ Credits
           </button>
-        </section>
-      </main>
+        </div>
+      )}
+
+      {/* Upload */}
+      <section className="px-4 pt-5 pb-3">
+        <label className={`
+          relative block w-full overflow-hidden rounded-2xl text-center cursor-pointer
+          transition-all active:scale-[0.99]
+          ${uploading
+            ? 'bg-gray-100 dark:bg-gray-900 cursor-wait'
+            : 'bg-gradient-to-br from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 shadow-lg shadow-green-500/20'
+          }
+        `}>
+          <div className="px-6 py-7 flex flex-col items-center gap-2">
+            {uploading ? (
+              <>
+                <div className="w-6 h-6 border-2 border-gray-300 dark:border-gray-700 border-t-green-600 rounded-full animate-spin" />
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  กำลังประมวลผล...
+                </span>
+              </>
+            ) : (
+              <>
+                <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+                </svg>
+                <span className="text-base font-semibold text-white">
+                  อัปโหลดสลิป
+                </span>
+              </>
+            )}
+          </div>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleUpload}
+            disabled={uploading}
+            className="hidden"
+          />
+        </label>
+
+        {error && (
+          <div className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20">
+            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <p className="text-xs text-red-700 dark:text-red-400 leading-relaxed">
+              {error}
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* History */}
+      <section id="history-section" className="px-4 pt-3 pb-6">
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500">
+            {activeTab === 'history' ? 'ประวัติทั้งหมด' : 'สลิปล่าสุด'}
+          </h2>
+          {totalReceipts > 0 && (
+            <span className="text-xs text-gray-400 dark:text-gray-600">
+              {totalReceipts} รายการ
+            </span>
+          )}
+        </div>
+
+        {receipts.length === 0 ? (
+          <div className="text-center py-12 px-4">
+            <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+              <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+              </svg>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-500">
+              ยังไม่มีสลิป
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
+              อัปโหลดสลิปแรกเลย
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {receipts.slice(0, activeTab === 'history' ? 20 : 5).map(r => (
+              <ReceiptCard key={r.id} receipt={r} />
+            ))}
+          </div>
+        )}
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={handleOpenWeb}
+            disabled={openingWeb}
+            className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {openingWeb ? 'กำลังเปิด...' : 'ดูทั้งหมดใน web'}
+            {!openingWeb && (
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+              </svg>
+            )}
+          </button>
+        </div>
+      </section>
+
+      {/* Result Modal */}
+      {result && (
+        <ResultModal result={result} onClose={() => setResult(null)} />
+      )}
+
+      {/* Buy Modal */}
+      {showBuyModal && (
+        <BuyModal
+          onBuy={handleBuy}
+          onClose={() => setShowBuyModal(false)}
+          buyingPlan={buyingPlan}
+        />
+      )}
+    </div>
+  )
+}
+
+const PLANS = [
+  { id: 'starter', name: 'Starter', price: 1, credits: 100, bonus: 0, desc: 'ทดลองใช้' },
+  { id: 'pro', name: 'Pro', price: 5, credits: 500, bonus: 50, desc: 'ยอดนิยม คุ้มที่สุด', highlight: true },
+  { id: 'whale', name: 'Whale', price: 10, credits: 1000, bonus: 200, desc: 'สำหรับคนใช้เยอะ' },
+]
+
+function BuyModal({ onBuy, onClose, buyingPlan }) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-3 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md overflow-hidden border border-gray-200 dark:border-gray-800 animate-in slide-in-from-bottom-4 duration-300"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">ซื้อ Credits</p>
+            <p className="text-xs text-gray-500 dark:text-gray-500">ซื้อครั้งเดียว ไม่มีรายเดือน</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {PLANS.map(plan => (
+            <button
+              key={plan.id}
+              onClick={() => onBuy(plan.id)}
+              disabled={!!buyingPlan}
+              className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border transition disabled:opacity-50 ${
+                plan.highlight
+                  ? 'bg-green-600 border-green-600 text-white hover:bg-green-500'
+                  : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              <div className="text-left">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold">{plan.name}</p>
+                  {plan.highlight && (
+                    <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">ยอดนิยม</span>
+                  )}
+                </div>
+                <p className={`text-xs mt-0.5 ${plan.highlight ? 'text-green-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                  {(plan.credits + plan.bonus).toLocaleString()} credits
+                  {plan.bonus > 0 && <span className="ml-1 text-green-400">+{plan.bonus} โบนัส</span>}
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0 ml-3">
+                {buyingPlan === plan.id ? (
+                  <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <p className="text-base font-bold">${plan.price}</p>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="px-4 pb-4 text-center">
+          <p className="text-[11px] text-gray-400 dark:text-gray-600">
+            Credits ไม่มีวันหมดอายุ · ใช้ได้ทันทีหลังชำระเงิน
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ReceiptCard({ receipt }) {
+  const amount = Number(receipt.amount || 0).toLocaleString('th-TH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })
+
+  return (
+    <div className="bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-900 border border-gray-100 dark:border-gray-800/50 rounded-xl p-3.5 transition">
+      <div className="flex items-baseline justify-between mb-1.5">
+        <div className="flex items-baseline gap-1">
+          <span className="text-[11px] text-gray-400 dark:text-gray-600">฿</span>
+          <span className="text-base font-semibold text-gray-900 dark:text-white tabular-nums">
+            {amount}
+          </span>
+        </div>
+        <span className="text-[11px] text-gray-400 dark:text-gray-600">
+          {receipt.date}
+        </span>
+      </div>
+      {receipt.receiver_name && (
+        <p className="text-sm truncate text-gray-700 dark:text-gray-300 mb-0.5">
+          {receipt.receiver_name}
+        </p>
+      )}
+      {(receipt.bank_from || receipt.bank_to) && (
+        <p className="text-[11px] text-gray-500 dark:text-gray-500 truncate flex items-center gap-1">
+          <span>{receipt.bank_from || '—'}</span>
+          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+          </svg>
+          <span>{receipt.bank_to || '—'}</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ResultModal({ result, onClose }) {
+  const amount = Number(result.amount || 0).toLocaleString('th-TH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-3 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md overflow-hidden border border-gray-200 dark:border-gray-800 animate-in slide-in-from-bottom-4 duration-300"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Success header */}
+        <div className="px-5 py-3.5 bg-green-50 dark:bg-green-500/10 border-b border-green-100 dark:border-green-500/20 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center">
+              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+              สแกนสำเร็จ
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-green-700 dark:text-green-400 hover:opacity-70 transition"
+            aria-label="ปิด"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Amount + meta */}
+        <div className="p-6 space-y-5">
+          <div className="text-center">
+            <div className="flex items-baseline justify-center gap-1.5 mb-2">
+              <span className="text-sm text-gray-400 dark:text-gray-600">฿</span>
+              <span className="text-4xl font-semibold text-gray-900 dark:text-white tabular-nums">
+                {amount}
+              </span>
+            </div>
+            {result.date && (
+              <p className="text-sm text-gray-500 dark:text-gray-500">
+                {result.date}
+              </p>
+            )}
+          </div>
+
+          {result.receiver_name && (
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4 py-3 space-y-1">
+              <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-600">
+                ผู้รับ
+              </p>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                {result.receiver_name}
+              </p>
+            </div>
+          )}
+
+          <button
+            onClick={onClose}
+            className="w-full bg-green-600 hover:bg-green-500 active:scale-[0.99] text-white py-3 rounded-xl text-sm font-medium transition"
+          >
+            สแกนใบใหม่
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
