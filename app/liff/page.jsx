@@ -18,6 +18,7 @@ export default function LiffPage() {
   const [error, setError] = useState(null)
   const [showBuyModal, setShowBuyModal] = useState(false)
   const [buyingPlan, setBuyingPlan] = useState(null)
+  const [activeTab, setActiveTab] = useState('main')
 
   // Load profile + history on mount
   useEffect(() => {
@@ -55,6 +56,26 @@ export default function LiffPage() {
 
     fetchAll()
   }, [accessToken])
+
+  // Handle ?tab= query param หลังโหลดเสร็จ
+  useEffect(() => {
+    if (loading) return
+
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
+
+    if (tab === 'buy') {
+      setShowBuyModal(true)
+      setActiveTab('buy')
+    } else if (tab === 'history') {
+      setActiveTab('history')
+      setTimeout(() => {
+        document.getElementById('history-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    } else {
+      setActiveTab('main')
+    }
+  }, [loading])
 
   const refreshHistory = useCallback(async () => {
     if (!accessToken) return
@@ -317,10 +338,10 @@ export default function LiffPage() {
       </section>
 
       {/* History */}
-      <section className="px-4 pt-3 pb-6">
+      <section id="history-section" className="px-4 pt-3 pb-6">
         <div className="flex items-baseline justify-between mb-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500">
-            สลิปล่าสุด
+            {activeTab === 'history' ? 'ประวัติทั้งหมด' : 'สลิปล่าสุด'}
           </h2>
           {totalReceipts > 0 && (
             <span className="text-xs text-gray-400 dark:text-gray-600">
@@ -345,7 +366,7 @@ export default function LiffPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {receipts.slice(0, 5).map(r => (
+            {receipts.slice(0, activeTab === 'history' ? 20 : 5).map(r => (
               <ReceiptCard key={r.id} receipt={r} />
             ))}
           </div>
