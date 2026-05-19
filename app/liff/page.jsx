@@ -225,7 +225,7 @@ export default function LiffPage() {
     )
   }
 
-  // ---- Main ----
+  // ---- Main ---- 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white pb-safe">
       {/* Header */}
