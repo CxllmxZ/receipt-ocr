@@ -228,13 +228,6 @@ export default function LiffPage() {
   // ---- Main ----
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white pb-safe">
-      {/* DEBUG - ลบทีหลัง */}
-      <div className="fixed top-0 left-0 right-0 bg-yellow-400 text-black text-xs p-2 z-50 break-all">
-        href: {typeof window !== 'undefined' ? window.location.href : '-'}
-        <br />
-        tab state: {activeTab}
-      </div>
-
       {/* Header */}
       <header className="sticky top-0 z-10 backdrop-blur bg-white/80 dark:bg-gray-950/80 border-b border-gray-100 dark:border-gray-900">
         <div className="px-4 py-3 flex items-center gap-3">
