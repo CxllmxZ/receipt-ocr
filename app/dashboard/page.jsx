@@ -131,7 +131,7 @@ export default function DashboardPage() {
 
     const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 
-    if (files.length > 5) {
+    if (files.length > 10) {
       showToast('อัพโหลดได้สูงสุด 5 รูปต่อครั้ง')
       setUploading(false)
       return
