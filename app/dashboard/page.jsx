@@ -30,6 +30,16 @@ function getPresetRange(preset) {
   return { from: '', to: '' }
 }
 
+// แปลงค่า r.date (วันที่บนสลิป) เป็น Date object ตามเวลาไทย
+// รองรับ 'YYYY-MM-DD' หรือ 'YYYY-MM-DD HH:mm' — ถ้าว่าง/null/อ่านไม่ได้ คืน null
+function parseTransferDate(r) {
+  const raw = r.date
+  if (raw == null || raw === 'null' || String(raw).trim() === '') return null
+  const datePart = String(raw).trim().split(/[ T]/)[0]
+  const d = new Date(datePart + 'T00:00:00+07:00')
+  return isNaN(d.getTime()) ? null : d
+}
+
 const PAGE_SIZE = 20
 
 export default function DashboardPage() {
@@ -38,11 +48,13 @@ export default function DashboardPage() {
   const [credits, setCredits] = useState(0)
   const [receipts, setReceipts] = useState([])
   const [filtered, setFiltered] = useState([])
+  const [undated, setUndated] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [presetIndex, setPresetIndex] = useState(1)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [dateBasis, setDateBasis] = useState('upload') // 'upload' = วันอัพโหลด, 'transfer' = วันที่โอน
   const [currentPage, setCurrentPage] = useState(1)
   const [uploadProgress, setUploadProgress] = useState([])
   const [previewUrl, setPreviewUrl] = useState(null)
@@ -69,12 +81,16 @@ export default function DashboardPage() {
   useEffect(() => {
     setCurrentPage(1)
     applyFilter()
-  }, [receipts, dateFrom, dateTo])
+  }, [receipts, dateFrom, dateTo, dateBasis])
 
   async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
     setUser(session.user)
+    // ตั้ง default 30 วัน "ครั้งเดียว" ตอนเปิดหน้า — ไม่ใช่ทุกครั้งที่ fetchData
+    const range = getPresetRange(PRESETS[1])
+    setDateFrom(range.from)
+    setDateTo(range.to)
     await fetchData(session.user.id)
   }
 
@@ -95,23 +111,38 @@ export default function DashboardPage() {
     setCredits(userData?.credits ?? 0)
     setReceipts(receiptData ?? [])
     setCurrentPage(1)
-
-    const range = getPresetRange(PRESETS[1])
-    setDateFrom(range.from)
-    setDateTo(range.to)
-
+    // หมายเหตุ: ไม่ตั้ง dateFrom/dateTo ที่นี่อีกแล้ว
+    // ไม่งั้นทุกครั้งที่อัพโหลดเสร็จ (fetchData ถูกเรียกซ้ำ) ช่วงวันที่จะเด้งกลับ default
     setLoading(false)
   }
 
   function applyFilter() {
-    if (!dateFrom || !dateTo) { setFiltered(receipts); return }
+    if (!dateFrom || !dateTo) { setFiltered(receipts); setUndated([]); return }
     const from = new Date(dateFrom + 'T00:00:00+07:00')
     const to = new Date(dateTo + 'T23:59:59+07:00')
-    to.setHours(23, 59, 59)
-    setFiltered(receipts.filter(r => {
-      const uploaded = new Date(r.created_at)
-      return uploaded >= from && uploaded <= to
-    }))
+
+    // โหมดวันอัพโหลด — created_at มีเสมอ ไม่มีหมวด "ไม่ระบุวันที่"
+    if (dateBasis === 'upload') {
+      setFiltered(receipts.filter(r => {
+        const uploaded = new Date(r.created_at)
+        return uploaded >= from && uploaded <= to
+      }))
+      setUndated([])
+      return
+    }
+
+    // โหมดวันที่โอน — แยกของที่อ่านวันไม่ออกไว้หมวดต่างหาก
+    const inRange = []
+    const noDate = []
+    for (const r of receipts) {
+      const d = parseTransferDate(r)
+      if (!d) { noDate.push(r); continue }
+      if (d >= from && d <= to) inRange.push(r)
+    }
+    // เรียงตามวันที่โอนล่าสุดก่อน (main list ของ DB เรียงตาม created_at)
+    inRange.sort((a, b) => parseTransferDate(b) - parseTransferDate(a))
+    setFiltered(inRange)
+    setUndated(noDate)
   }
 
   function handlePreset(index) {
@@ -266,6 +297,12 @@ export default function DashboardPage() {
     setSaving(false)
   }
 
+  // escape ค่าก่อนยัดลง CSV: ถ้ามี comma / quote / ขึ้นบรรทัดใหม่ ให้ครอบด้วย "..." และ escape quote ข้างใน
+  function csvEsc(v) {
+    const s = String(v ?? '')
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+  }
+
   function exportCSV() {
     if (!filtered.length) return
     const headers = ['วันที่อัพโหลด', 'ร้าน/ผู้รับ', 'ผู้ส่ง', 'จำนวนเงิน', 'ธนาคารต้นทาง', 'ธนาคารปลายทาง', 'เลขอ้างอิง', 'หมายเหตุ']
@@ -279,7 +316,7 @@ export default function DashboardPage() {
       r.ref_number ?? '',
       r.note == null || r.note === 'null' ? '' : r.note,
     ])
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const csv = [headers, ...rows].map(r => r.map(csvEsc).join(',')).join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -291,6 +328,65 @@ export default function DashboardPage() {
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  // การ์ดรายการ 1 ใบ — ใช้ทั้งใน list หลักและในหมวด "ไม่ระบุวันที่"
+  function renderReceiptCard(r) {
+    return (
+      <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <svg width="16" height="18" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="1" y="0.5" width="14" height="16" rx="2" stroke="#4ade80" strokeWidth="1.2" fill="#1a2a1a"/>
+              <polyline points="1,16.5 2.8,13.5 4.6,16.5 6.4,13.5 8.2,16.5 10,13.5 11.8,16.5 13.6,13.5 15,16.5" fill="none" stroke="#4ade80" strokeWidth="1.2" strokeLinejoin="round"/>
+              <line x1="3.5" y1="5" x2="12.5" y2="5" stroke="#4ade80" strokeWidth="1" strokeLinecap="round" opacity="0.4"/>
+              <line x1="3.5" y1="8" x2="10" y2="8" stroke="#4ade80" strokeWidth="1" strokeLinecap="round" opacity="0.3"/>
+              <line x1="3.5" y1="11" x2="12.5" y2="11" stroke="#4ade80" strokeWidth="1.1" strokeLinecap="round" opacity="0.5"/>
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-medium truncate">{r.receiver_name ?? '—'}</p>
+              {r.is_authentic === false && (
+                <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full whitespace-nowrap">! น่าสงสัย</span>
+              )}
+              {r.is_authentic === true && r.confidence === 'low' && (
+                <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full whitespace-nowrap">! ไม่ชัดเจน</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5 truncate">
+              {(r.bank_from == null || r.bank_from === 'null') ? '' : r.bank_from}{r.bank_from && r.bank_to ? ' → ' : ''}{(r.bank_to == null || r.bank_to === 'null') ? '' : r.bank_to}
+              {r.ref_number ? ` · ref: ${r.ref_number}` : ''}
+            </p>
+            {r.suspicious_signs?.length > 0 && (
+              <p className="text-xs text-red-400 mt-0.5 truncate">{r.suspicious_signs.join(', ')}</p>
+            )}
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-sm font-medium">฿{(parseFloat(r.amount) || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</p>
+          <p className="text-xs text-gray-600 mt-0.5">
+            {new Date(r.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
+          </p>
+          <div className="flex items-center gap-1.5 justify-end mt-2">
+            <button
+              onClick={() => openEdit(r)}
+              className="text-xs text-gray-400 hover:text-gray-200 border border-gray-700 hover:border-gray-500 rounded-lg px-3 py-1.5 transition min-h-[32px]"
+            >
+              แก้ไข
+            </button>
+            {r.image_url && (
+              <button
+                onClick={() => setPreviewUrl(r.image_url)}
+                className="text-xs text-green-400 hover:text-green-300 border border-green-500/40 hover:border-green-400/60 rounded-lg px-3 py-1.5 transition min-h-[32px]"
+              >
+                ดูรูป
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const totalAmount = filtered.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0)
@@ -419,12 +515,9 @@ export default function DashboardPage() {
                 </span>
                 {p.message && <span className="text-red-400 flex-shrink-0">{p.message}</span>}
               </div>
-              
             ))}
-          </div>          
+          </div>
         )}
-
-        
 
         {/* filter toolbar */}
         <div className="flex justify-between items-center mb-3">
@@ -474,74 +567,51 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <p className="text-xs text-gray-700 mb-3">* กรองตามวันที่อัพโหลด ไม่ใช่วันที่บนสลิป</p>
+        {/* date basis toggle: วันอัพโหลด (default) / วันที่โอน */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs text-gray-600 flex-shrink-0">กรองตาม</span>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setDateBasis('upload')}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition ${dateBasis === 'upload' ? 'border-gray-400 text-white bg-gray-800' : 'border-gray-800 text-gray-500 hover:border-gray-600'}`}
+            >วันอัพโหลด</button>
+            <button
+              onClick={() => setDateBasis('transfer')}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition ${dateBasis === 'transfer' ? 'border-gray-400 text-white bg-gray-800' : 'border-gray-800 text-gray-500 hover:border-gray-600'}`}
+            >วันที่โอน</button>
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-700 mb-3">
+          {dateBasis === 'upload'
+            ? '* กรองตามวันที่อัพโหลด ไม่ใช่วันที่บนสลิป'
+            : '* กรองตามวันที่บนสลิป — รายการที่อ่านวันไม่ออกจะแยกไว้หมวดด้านล่าง'}
+        </p>
 
         {/* receipt list */}
         <div className="flex flex-col gap-2">
-          {pagedFiltered.length === 0 ? (
+          {receipts.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-sm text-gray-300 font-medium mb-1">ยังไม่มีสลิป เริ่มจากอัปใบแรก</p>
+              <p className="text-xs text-gray-600 mb-4">อัปสลิปหรือใบเสร็จ ระบบจะอ่านข้อมูลให้อัตโนมัติ</p>
+              <label className="inline-block text-xs text-white bg-green-600 hover:bg-green-500 rounded-lg px-4 py-2 font-medium cursor-pointer transition">
+                <input type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+                อัปสลิปแรกของคุณ
+              </label>
+            </div>
+          ) : pagedFiltered.length === 0 ? (
             <div className="text-center py-12 text-gray-600 text-sm">
               ไม่มีข้อมูลในช่วงที่เลือก
+              <button onClick={() => handlePreset(1)} className="block mx-auto mt-2 text-gray-400 hover:text-gray-200 underline">
+                ดู 30 วันล่าสุด
+              </button>
             </div>
-          ) : pagedFiltered.map(r => (
-            <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <svg width="16" height="18" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="1" y="0.5" width="14" height="16" rx="2" stroke="#4ade80" strokeWidth="1.2" fill="#1a2a1a"/>
-                    <polyline points="1,16.5 2.8,13.5 4.6,16.5 6.4,13.5 8.2,16.5 10,13.5 11.8,16.5 13.6,13.5 15,16.5" fill="none" stroke="#4ade80" strokeWidth="1.2" strokeLinejoin="round"/>
-                    <line x1="3.5" y1="5" x2="12.5" y2="5" stroke="#4ade80" strokeWidth="1" strokeLinecap="round" opacity="0.4"/>
-                    <line x1="3.5" y1="8" x2="10" y2="8" stroke="#4ade80" strokeWidth="1" strokeLinecap="round" opacity="0.3"/>
-                    <line x1="3.5" y1="11" x2="12.5" y2="11" stroke="#4ade80" strokeWidth="1.1" strokeLinecap="round" opacity="0.5"/>
-                  </svg>
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium truncate">{r.receiver_name ?? '—'}</p>
-                    {r.is_authentic === false && (
-                      <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full whitespace-nowrap">! น่าสงสัย</span>
-                    )}
-                    {r.is_authentic === true && r.confidence === 'low' && (
-                      <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full whitespace-nowrap">! ไม่ชัดเจน</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-0.5 truncate">
-                    {(r.bank_from == null || r.bank_from === 'null') ? '' : r.bank_from}{r.bank_from && r.bank_to ? ' → ' : ''}{(r.bank_to == null || r.bank_to === 'null') ? '' : r.bank_to}
-                    {r.ref_number ? ` · ref: ${r.ref_number}` : ''}
-                  </p>
-                  {r.suspicious_signs?.length > 0 && (
-                    <p className="text-xs text-red-400 mt-0.5 truncate">{r.suspicious_signs.join(', ')}</p>
-                  )}
-                </div>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-sm font-medium">฿{parseFloat(r.amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</p>
-                <p className="text-xs text-gray-600 mt-0.5">
-                  {new Date(r.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
-                </p>
-                <div className="flex items-center gap-1.5 justify-end mt-2">
-                  <button
-                    onClick={() => openEdit(r)}
-                    className="text-xs text-gray-400 hover:text-gray-200 border border-gray-700 hover:border-gray-500 rounded-lg px-3 py-1.5 transition min-h-[32px]"
-                  >
-                    แก้ไข
-                  </button>
-                  {r.image_url && (
-                    <button
-                      onClick={() => setPreviewUrl(r.image_url)}
-                      className="text-xs text-green-400 hover:text-green-300 border border-green-500/40 hover:border-green-400/60 rounded-lg px-3 py-1.5 transition min-h-[32px]"
-                    >
-                      ดูรูป
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+          ) : pagedFiltered.map(renderReceiptCard)}
 
           {editReceipt && (
             <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 px-0 sm:px-4">
               <div className="bg-gray-900 rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-md max-h-[90vh] overflow-y-auto space-y-3" onClick={e => e.stopPropagation()}>
-                
+
                 <div className="flex justify-between items-center mb-2">
                   <h2 className="text-sm font-medium">แก้ไขข้อมูล</h2>
                   <button onClick={() => setEditReceipt(null)} className="text-gray-600 hover:text-gray-400 text-xs">✕</button>
@@ -625,10 +695,10 @@ export default function DashboardPage() {
 
               </div>
             </div>
-          )}   
+          )}
 
           {previewUrl && (
-            <div 
+            <div
               className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 px-4"
               onClick={() => setPreviewUrl(null)}
             >
@@ -687,6 +757,17 @@ export default function DashboardPage() {
                 disabled={currentPage === totalPages}
                 className="px-3 py-1.5 text-xs border border-gray-800 rounded-lg text-gray-500 hover:border-gray-600 disabled:opacity-30"
               >→</button>
+            </div>
+          )}
+
+          {/* หมวด "ไม่ระบุวันที่" — เฉพาะโหมดวันที่โอน เมื่อมีรายการที่อ่านวันไม่ออก */}
+          {dateBasis === 'transfer' && undated.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-gray-800 flex flex-col gap-2">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="text-xs font-medium text-yellow-400/90">ไม่ระบุวันที่</span>
+                <span className="text-xs text-gray-600">{undated.length} รายการ — อ่านวันบนสลิปไม่ออก กดแก้ไขเพื่อเพิ่มวันที่</span>
+              </div>
+              {undated.map(renderReceiptCard)}
             </div>
           )}
         </div>
