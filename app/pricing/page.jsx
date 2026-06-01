@@ -187,7 +187,7 @@ export default function PricingPage() {
         {/* note */}
         <div className="text-center space-y-2 mb-4">
           <p className="text-xs text-gray-600">Credits ไม่มีวันหมดอายุ · ใช้ได้ทันทีหลังชำระเงิน</p>
-          <p className="text-xs text-gray-700">สมัครใหม่รับฟรี 20 credits ทันที</p>
+          <p className="text-xs text-gray-700">สมัครใหม่รับฟรี 150 credits ทันที</p>
           <p className="text-xs text-gray-700">
             มีคำถาม?{' '}
             <button onClick={() => router.push('/support')} className="text-gray-500 hover:text-gray-300 underline">
