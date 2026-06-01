@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function SupportPage() {
@@ -10,6 +10,22 @@ export default function SupportPage() {
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
+  const [images, setImages] = useState([]) // [{file, preview}]
+  const fileRef = useRef(null)
+
+  function handleImageSelect(e) {
+    const files = Array.from(e.target.files)
+    const newImgs = files.slice(0, 3 - images.length).map(file => ({
+      file,
+      preview: URL.createObjectURL(file)
+    }))
+    setImages(prev => [...prev, ...newImgs].slice(0, 3))
+    e.target.value = null
+  }
+
+  function removeImage(idx) {
+    setImages(prev => prev.filter((_, i) => i !== idx))
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -17,10 +33,16 @@ export default function SupportPage() {
     setError('')
 
     try {
+      const formData = new FormData()
+      formData.append('name', name)
+      formData.append('email', email)
+      formData.append('message', message)
+      images.forEach((img, i) => formData.append(`attachment_${i}`, img.file))
+
       const res = await fetch('https://formspree.io/f/xwvavjzw', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, message })
+        body: formData,
+        headers: { Accept: 'application/json' }
       })
 
       if (res.ok) {
@@ -120,6 +142,48 @@ export default function SupportPage() {
                 />
               </div>
 
+              {/* image attachment */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1.5 block">แนบรูป <span className="text-gray-700">(ไม่บังคับ สูงสุด 3 รูป)</span></label>
+
+                {/* preview grid */}
+                {images.length > 0 && (
+                  <div className="flex gap-2 mb-2 flex-wrap">
+                    {images.map((img, idx) => (
+                      <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-700">
+                        <img src={img.preview} alt="" className="w-full h-full object-cover"/>
+                        <button
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-1 right-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-white text-xs hover:bg-black"
+                        >✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* add button */}
+                {images.length < 3 && (
+                  <>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleImageSelect}
+                    />
+                    <button
+                      onClick={() => fileRef.current?.click()}
+                      className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-200 border border-dashed border-gray-700 hover:border-gray-500 rounded-xl px-4 py-3 w-full transition"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+                      </svg>
+                      แนบรูปภาพ {images.length > 0 ? `(${images.length}/3)` : ''}
+                    </button>
+                  </>
+                )}
+              </div>
               {error && (
                 <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
                   {error}
