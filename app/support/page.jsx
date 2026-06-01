@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 export default function SupportPage() {
   const router = useRouter()
@@ -10,7 +11,7 @@ export default function SupportPage() {
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
-  const [images, setImages] = useState([]) // [{file, preview}]
+  const [images, setImages] = useState([])
   const fileRef = useRef(null)
 
   function handleImageSelect(e) {
@@ -27,22 +28,44 @@ export default function SupportPage() {
     setImages(prev => prev.filter((_, i) => i !== idx))
   }
 
+  async function uploadImages() {
+    const urls = []
+    for (const img of images) {
+      const ext = img.file.name.split('.').pop()
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await supabase.storage
+        .from('support-attachments')
+        .upload(path, img.file, { upsert: false })
+      if (error) throw new Error('อัพโหลดรูปไม่สำเร็จ')
+      const { data } = supabase.storage
+        .from('support-attachments')
+        .getPublicUrl(path)
+      urls.push(data.publicUrl)
+    }
+    return urls
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
     setError('')
 
     try {
-      const formData = new FormData()
-      formData.append('name', name)
-      formData.append('email', email)
-      formData.append('message', message)
-      images.forEach((img, i) => formData.append(`attachment_${i}`, img.file))
+      // upload images → get URLs
+      let imageUrls = []
+      if (images.length > 0) {
+        imageUrls = await uploadImages()
+      }
+
+      // build message with image URLs appended
+      const fullMessage = imageUrls.length > 0
+        ? `${message}\n\n---\nรูปแนบ:\n${imageUrls.map((u, i) => `${i + 1}. ${u}`).join('\n')}`
+        : message
 
       const res = await fetch('https://formspree.io/f/xwvavjzw', {
         method: 'POST',
-        body: formData,
-        headers: { Accept: 'application/json' }
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ name, email, message: fullMessage })
       })
 
       if (res.ok) {
@@ -50,8 +73,8 @@ export default function SupportPage() {
       } else {
         setError('เกิดข้อผิดพลาด กรุณาลองใหม่')
       }
-    } catch {
-      setError('เชื่อมต่อไม่ได้ กรุณาลองใหม่')
+    } catch (err) {
+      setError(err.message || 'เชื่อมต่อไม่ได้ กรุณาลองใหม่')
     }
 
     setLoading(false)
