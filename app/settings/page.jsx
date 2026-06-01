@@ -197,6 +197,21 @@ export default function SettingsPage() {
   const isGoogleConnected = !!googleIdentity
   const googleEmail = googleIdentity?.identity_data?.email
 
+  // display name — LINE profile > Google metadata > email
+  const displayName =
+    profile?.display_name ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email ||
+    '—'
+
+  // avatar — LINE profile > Google avatar > null
+  const avatarUrl =
+    profile?.avatar_url ||
+    user?.user_metadata?.avatar_url ||
+    user?.user_metadata?.picture ||
+    null
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {toast && (
@@ -230,15 +245,19 @@ export default function SettingsPage() {
           </p>
           <div className="bg-gray-900 rounded-xl p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                {(profile?.display_name || user?.email || 'U')[0].toUpperCase()}
+              <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-gradient-to-br from-green-400 to-green-600">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer"/>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white font-semibold">
+                    {displayName[0].toUpperCase()}
+                  </div>
+                )}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {profile?.display_name || user?.email || '—'}
-                </p>
+                <p className="text-sm font-medium truncate">{displayName}</p>
                 <p className="text-xs text-gray-500">
-                  {user?.app_metadata?.provider === 'google' ? 'Google account' : 'Email account'}
+                  {user?.email || '—'}
                 </p>
               </div>
             </div>
