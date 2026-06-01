@@ -16,6 +16,7 @@ export default function LiffPage() {
   const [openingWeb, setOpeningWeb] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const [progress, setProgress] = useState(null)
   const [showBuyModal, setShowBuyModal] = useState(false)
   const [buyingPlan, setBuyingPlan] = useState(null)
   const [activeTab, setActiveTab] = useState('main')
@@ -92,27 +93,42 @@ export default function LiffPage() {
   }, [accessToken])
 
   const handleUpload = async (e) => {
-    const files = Array.from(e.target.files || []).slice(0, 5)
+    const files = Array.from(e.target.files || [])
     if (!files.length || !accessToken) return
+
+    // จำกัด 10 รูปต่อครั้ง ให้เท่ากับ web — เกินแล้วเตือนและไม่ประมวลผล (ไม่ตัดเงียบ)
+    if (files.length > 10) {
+      setError('อัพโหลดได้สูงสุด 10 รูปต่อครั้ง')
+      e.target.value = ''
+      return
+    }
 
     setUploading(true)
     setError(null)
+    setProgress(null)
 
     const results = []
     for (let i = 0; i < files.length; i++) {
+      // progress แยกจาก error (กล่องเทา ไม่ใช่กล่องแดง)
       if (files.length > 1) {
-        setError(`กำลังประมวลผล ${i + 1}/${files.length}...`)
+        setProgress(`กำลังประมวลผล ${i + 1}/${files.length}...`)
       }
 
       const formData = new FormData()
       formData.append('image', files[i])
 
+      // timeout 60 วิ กัน upload ค้างตลอดกาล
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 60000)
+
       try {
         const res = await fetch(`${N8N_BASE}/upload`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: formData
+          body: formData,
+          signal: controller.signal
         })
+        clearTimeout(timeoutId)
         const data = await res.json()
 
         if (data.success) {
@@ -129,18 +145,28 @@ export default function LiffPage() {
             not_a_slip: 'ไฟล์นี้ไม่ใช่สลิป กรุณาอัปโหลดรูปสลิปโอนเงิน',
             unauthorized: 'กรุณาเข้าสู่ระบบใหม่',
           }
+          setProgress(null)
           setError(errMap[data.error] || data.reject_reason || data.error || `รูปที่ ${i + 1} อัปโหลดไม่สำเร็จ`)
           break
         }
       } catch (err) {
-        setError(`รูปที่ ${i + 1} เกิดข้อผิดพลาด`)
+        clearTimeout(timeoutId)
+        setProgress(null)
+        setError(err.name === 'AbortError' ? `รูปที่ ${i + 1} หมดเวลา (timeout)` : `รูปที่ ${i + 1} เกิดข้อผิดพลาด`)
         break
       }
     }
 
     if (results.length > 0) {
-      setResult(results[results.length - 1])
       setError(null)
+      // ใบเดียว → ขึ้น popup, หลายใบ → ไม่ขึ้น modal แค่โชว์ success inline สั้นๆ
+      if (files.length === 1) {
+        setResult(results[results.length - 1])
+        setProgress(null)
+      } else {
+        setProgress(`สแกนสำเร็จ ${results.length} ใบ`)
+        setTimeout(() => setProgress(null), 3000)
+      }
       refreshHistory()
     }
 
@@ -183,8 +209,6 @@ export default function LiffPage() {
   }
 
   const handleBuy = async (planId) => {
-    console.log('[buy] user_id:', profile?.user_id)
-    console.log('[buy] plan:', planId)
     setBuyingPlan(planId)
     try {
       const res = await fetch(`${N8N_BASE}/create-checkout`, {
@@ -318,6 +342,18 @@ export default function LiffPage() {
           />
         </label>
 
+        {/* progress (กล่องเทา แยกจาก error) */}
+        {progress && (
+          <div className="mt-3 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+            {uploading && (
+              <div className="w-3.5 h-3.5 border-2 border-gray-300 dark:border-gray-700 border-t-green-600 rounded-full animate-spin flex-shrink-0" />
+            )}
+            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+              {progress}
+            </p>
+          </div>
+        )}
+
         {error && (
           <div className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20">
             <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -332,15 +368,29 @@ export default function LiffPage() {
 
       {/* History */}
       <section id="history-section" className="px-4 pt-3 pb-6">
-        <div className="flex items-baseline justify-between mb-3">
+        <div className="flex items-baseline justify-between mb-3 gap-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500">
             {activeTab === 'history' ? 'ประวัติทั้งหมด' : 'สลิปล่าสุด'}
           </h2>
-          {totalReceipts > 0 && (
-            <span className="text-xs text-gray-400 dark:text-gray-600">
-              {totalReceipts} รายการ
-            </span>
-          )}
+          <div className="flex items-baseline gap-3 flex-shrink-0">
+            {totalReceipts > 0 && (
+              <span className="text-xs text-gray-400 dark:text-gray-600">
+                {totalReceipts} รายการ
+              </span>
+            )}
+            <button
+              onClick={handleOpenWeb}
+              disabled={openingWeb}
+              className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400 hover:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed transition whitespace-nowrap"
+            >
+              {openingWeb ? 'กำลังเปิด...' : 'เปิดบนเว็บ · export'}
+              {!openingWeb && (
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
 
         {receipts.length === 0 ? (
@@ -364,21 +414,6 @@ export default function LiffPage() {
             ))}
           </div>
         )}
-
-        <div className="mt-6 text-center">
-          <button
-            onClick={handleOpenWeb}
-            disabled={openingWeb}
-            className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-          >
-            {openingWeb ? 'กำลังเปิด...' : 'ดูทั้งหมดใน web'}
-            {!openingWeb && (
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-              </svg>
-            )}
-          </button>
-        </div>
       </section>
 
       {/* Result Modal */}
