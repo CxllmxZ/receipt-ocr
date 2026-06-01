@@ -26,34 +26,32 @@ export default function LiffPage() {
     if (!accessToken) return
 
     const fetchAll = async () => {
-      setLoading(true)
-      try {
-        const [meRes, histRes] = await Promise.all([
-          fetch(`${N8N_BASE}/me`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-          }),
-          fetch(`${N8N_BASE}/history`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-          })
-        ])
+    setLoading(true)
+    try {
+      const [meRes, histRes] = await Promise.all([
+        fetch(`${N8N_BASE}/me`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+        fetch(`${N8N_BASE}/history`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      ])
 
-        if (meRes.ok) {
-          const me = await meRes.json()
-          setProfile(me)
-          setCredits(me.credits)
-        }
-
-        if (histRes.ok) {
-          const hist = await histRes.json()
-          setReceipts(hist.receipts || [])
-          setTotalReceipts(hist.total ?? hist.receipts?.length ?? 0)
-        }
-      } catch (err) {
-        setError('โหลดข้อมูลไม่สำเร็จ')
-      } finally {
-        setLoading(false)
+      if (meRes.ok) {
+        const me = await meRes.json()
+        setProfile(me)
+        setCredits(me.credits ?? 0)
       }
+
+      if (histRes.ok) {
+        const hist = await histRes.json()
+        setReceipts(hist.receipts || [])
+        setTotalReceipts(hist.total ?? hist.receipts?.length ?? 0)
+      }
+    } catch (err) {
+      // เฉพาะตอนเชื่อมต่อไม่ได้จริงๆ (network ตาย) — ไม่ใช่กรณี user ใหม่ที่ยังไม่มีข้อมูล
+      console.error('fetchAll failed:', err)
+      setError('เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง')
+    } finally {
+      setLoading(false)
     }
+  }
 
     fetchAll()
   }, [accessToken])
