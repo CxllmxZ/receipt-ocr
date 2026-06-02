@@ -23,38 +23,49 @@ export default function LiffPage() {
 
   // Load profile + history on mount
   useEffect(() => {
-    if (!accessToken) return
+    // รอทั้ง accessToken และ liffReady — ถ้าใช้ accessToken ก่อน liffReady พร้อม fetch จะ fail
+    if (!accessToken || !liffReady) return
 
     const fetchAll = async () => {
-    setLoading(true)
-    try {
-      const [meRes, histRes] = await Promise.all([
-        fetch(`${N8N_BASE}/me`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-        fetch(`${N8N_BASE}/history`, { headers: { Authorization: `Bearer ${accessToken}` } })
-      ])
+      setLoading(true)
+      try {
+        const [meRes, histRes] = await Promise.all([
+          fetch(`${N8N_BASE}/me`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+          fetch(`${N8N_BASE}/history`, { headers: { Authorization: `Bearer ${accessToken}` } })
+        ])
 
-      if (meRes.ok) {
-        const me = await meRes.json()
-        setProfile(me)
-        setCredits(me.credits ?? 0)
-      }
+        if (meRes.ok) {
+          const me = await meRes.json()
+          if (me.success && me.user_id) {
+            setProfile(me)
+            setCredits(me.credits ?? 0)
+          } else {
+            // auth module คืนค่ามาแต่ไม่พบ user — ไม่ใช่ connection error
+            setCredits(0)
+          }
+        } else if (meRes.status === 401 || meRes.status === 403 || meRes.status === 404) {
+          // user ยังไม่มีบัญชี — แสดง 0 credit แทนที่จะแสดง '-' ซึ่งดูเหมือน error
+          setCredits(0)
+        }
+        // meRes status อื่น (5xx) → credits ยัง null → แสดง '-' ตามเดิม
 
-      if (histRes.ok) {
-        const hist = await histRes.json()
-        setReceipts(hist.receipts || [])
-        setTotalReceipts(hist.total ?? hist.receipts?.length ?? 0)
+        if (histRes.ok) {
+          const hist = await histRes.json()
+          setReceipts(hist.receipts || [])
+          setTotalReceipts(hist.total ?? hist.receipts?.length ?? 0)
+        }
+        // histRes ไม่ ok → แค่ไม่มี history ไม่ใช่ error ที่ต้องแจ้ง user
+      } catch (err) {
+        // เฉพาะ network error จริงๆ (CORS, ไม่มีอินเตอร์เน็ต)
+        console.error('fetchAll failed:', err)
+        setError('เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง')
+      } finally {
+        setLoading(false)
       }
-    } catch (err) {
-      // เฉพาะตอนเชื่อมต่อไม่ได้จริงๆ (network ตาย) — ไม่ใช่กรณี user ใหม่ที่ยังไม่มีข้อมูล
-      console.error('fetchAll failed:', err)
-      setError('เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง')
-    } finally {
-      setLoading(false)
     }
-  }
 
     fetchAll()
-  }, [accessToken])
+  }, [accessToken, liffReady])
 
   // Handle ?tab= query param หลังโหลดเสร็จ
   useEffect(() => {
