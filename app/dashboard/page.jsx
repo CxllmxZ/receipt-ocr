@@ -168,6 +168,18 @@ export default function DashboardPage() {
       return
     }
 
+    // กันไฟล์ปลอม/เล็กผิดปกติ/format ไม่รองรับ ก่อนส่งขึ้น server
+    const badFile = files.find(f => !allowed.includes(f.type) || f.size < 1024)
+    if (badFile) {
+      showToast(
+        badFile.size < 1024
+          ? 'ไฟล์ไม่ถูกต้อง กรุณาส่งรูปสลิป'
+          : 'รองรับเฉพาะ JPG, PNG, WEBP'
+      )
+      setUploading(false)
+      return
+    }
+
     const { data: { session } } = await supabase.auth.getSession()
 
     // ตั้งค่า progress เริ่มต้น
